@@ -154,17 +154,18 @@ jobs:
           echo "**⚠️ Important:** All synced workflows are imported as INACTIVE for safety." >> sync-summary.md
           echo "Please manually activate them in n8n after verification." >> sync-summary.md
 
-      - name: Notify production sync
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          channel: '#prod-deployments'
-          text: |
-            🚀 PRODUCTION SYNC ${{ job.status }}!
-            
-            Workflows: ${{ github.event.inputs.workflows }}
-            Synced by: ${{ github.actor }}
-        if: always()
+#      - name: Notify production sync
+#        uses: 8398a7/action-slack@v3
+#        with:
+#          status: ${{ job.status }}
+#          channel: '#prod-deployments'
+#          text: |
+#            🚀 PRODUCTION SYNC ${{ job.status }}!
+#
+#            Workflows: ${{ github.event.inputs.workflows }}
+#            Synced by: ${{ github.actor }}
+#          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+#        if: always()
 
       - name: Upload sync artifacts
         uses: actions/upload-artifact@v4
