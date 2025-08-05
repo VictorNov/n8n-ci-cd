@@ -56,22 +56,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Create n8n configuration
+      - name: Inject API key into existing config
         run: |
-          cat > config/n8n-config.json << EOF
-          {
-            "n8n": {
-              "baseUrl": "${{ secrets.N8N_CLOUD_URL }}",
-              "apiKey": "${{ secrets.N8N_API_KEY }}",
-              "webhookUrl": "${{ secrets.N8N_WEBHOOK_URL }}"
-            },
-            "deployment": {
-              "requireApprovalForProd": true,
-              "backupBeforeDeployment": true,
-              "validateWorkflows": true
-            }
-          }
-          EOF
+          jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
 
       - name: Create backup of production workflows
         if: github.event.inputs.skip_backup != 'true'
