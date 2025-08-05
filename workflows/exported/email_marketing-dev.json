@@ -63,27 +63,16 @@
     },
     {
       "parameters": {
-        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+        "options": {}
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
       "position": [
         240,
         -180
       ],
-      "id": "2d367fda-6b16-4451-a231-69606f6e70ab",
-      "name": "Code1"
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.executionData",
-      "typeVersion": 1,
-      "position": [
-        240,
-        -20
-      ],
-      "id": "d8947090-068b-465c-9d7d-461fd0197339",
-      "name": "Execution Data"
+      "id": "33d26963-2fd7-4977-8161-e6de7134dd30",
+      "name": "AI Agent"
     }
   ],
   "connections": {
@@ -102,18 +91,12 @@
       "main": [
         [
           {
-            "node": "Code1",
+            "node": "AI Agent",
             "type": "main",
             "index": 0
           }
         ],
-        [
-          {
-            "node": "Execution Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Code": {
