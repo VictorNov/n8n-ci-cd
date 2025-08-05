@@ -82,7 +82,6 @@ jobs:
           echo "📝 Committing production backup..."
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
-          git add workflows/exported
           git add workflows/backups
           git commit -m "📦 Production backup $(date +%Y-%m-%d)"
           git push
@@ -157,7 +156,6 @@ jobs:
           echo "## Production Sync Summary" > sync-summary.md
           echo "" >> sync-summary.md
           echo "**Synced workflows:** ${{ github.event.inputs.workflows }}" >> sync-summary.md
-          echo "**Approved by:** Production approvers" >> sync-summary.md
           echo "**Deployed by:** ${{ github.actor }}" >> sync-summary.md
           echo "**Date:** $(date -u)" >> sync-summary.md
           echo "**Backup created:** ${{ github.event.inputs.skip_backup != 'true' && 'Yes' || 'No' }}" >> sync-summary.md
