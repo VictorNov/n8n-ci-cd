@@ -12,9 +12,21 @@
     "workflows:list:prod": "node scripts/manage-workflows.js list prod",
     "workflows:status": "node scripts/manage-workflows.js status",
     "workflows:validate": "node scripts/validate-workflows.js",
+
+    "backup:create": "node scripts/manage-workflows.js backup",
+    "backup:create:prod": "node scripts/manage-workflows.js backup prod",
+    "backup:create:dev": "node scripts/manage-workflows.js backup dev",
+    "backup:list": "node scripts/manage-workflows.js list-backups",
+    "backup:restore": "node scripts/manage-workflows.js restore",
+    "backup:cleanup": "node scripts/manage-workflows.js cleanup-backups",
+
     "dev:export": "npm run workflows:export:dev",
     "prod:sync": "npm run workflows:sync",
-    "backup": "npm run workflows:export:prod && cp -r workflows/exported workflows/backups/backup_$(date +%Y%m%d_%H%M%S)"
+    "prod:backup": "npm run backup:create:prod",
+    "emergency:restore": "npm run backup:restore",
+
+    "interactive": "node scripts/interactive-select.js",
+    "full-backup": "npm run backup:create:prod && cp -r workflows/backups workflows/backups-archive-$(date +%Y%m%d)"
   },
   "private": true,
   "dependencies": {

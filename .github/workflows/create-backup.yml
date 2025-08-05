@@ -1,0 +1,107 @@
+name: Create Production Backup
+
+permissions:
+  contents: write
+  issues: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_name:
+        description: 'Custom backup name (optional)'
+        required: false
+        default: ''
+      environment:
+        description: 'Environment to backup'
+        required: false
+        default: 'prod'
+        type: choice
+        options:
+          - prod
+          - dev
+
+jobs:
+  create-backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Inject API key into existing config
+        run: |
+          jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
+
+      - name: Create backup
+        run: |
+          if [[ -n "${{ github.event.inputs.backup_name }}" ]]; then
+            node scripts/manage-workflows.js backup ${{ github.event.inputs.environment }} "${{ github.event.inputs.backup_name }}"
+          else
+            node scripts/manage-workflows.js backup ${{ github.event.inputs.environment }}
+          fi
+
+      - name: Commit backup to repository
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add workflows/backups/
+            git commit -m "backup: create ${{ github.event.inputs.environment }} backup $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Create backup summary
+        run: |
+          echo "## Backup Creation Summary" > backup-summary.md
+          echo "" >> backup-summary.md
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> backup-summary.md
+          echo "**Created by:** ${{ github.actor }}" >> backup-summary.md
+          echo "**Date:** $(date -u)" >> backup-summary.md
+          echo "**Custom name:** ${{ github.event.inputs.backup_name || 'Auto-generated' }}" >> backup-summary.md
+          echo "" >> backup-summary.md
+          
+          # Find the most recent backup directory
+          latest_backup=$(ls -1t workflows/backups/ | head -n1)
+          if [[ -f "workflows/backups/$latest_backup/_backup_metadata.json" ]]; then
+            echo "**Backup Details:**" >> backup-summary.md
+            node -e "
+              const metadata = JSON.parse(require('fs').readFileSync('workflows/backups/$latest_backup/_backup_metadata.json', 'utf8'));
+              console.log('- Backup name: ' + metadata.backupName);
+              console.log('- Workflows backed up: ' + metadata.workflowCount);
+              console.log('- Failed: ' + metadata.failedCount);
+            " >> backup-summary.md
+          fi
+
+      - name: Upload backup artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.event.inputs.environment }}-${{ github.run_number }}
+          path: |
+            workflows/backups/
+            backup-summary.md
+          retention-days: 90
+
+#      - name: Notify backup creation
+#        uses: 8398a7/action-slack@v3
+#        with:
+#          status: ${{ job.status }}
+#          channel: '#backups'
+#          text: |
+#            💾 BACKUP CREATED ${{ job.status }}!
+#
+#            Environment: ${{ github.event.inputs.environment }}
+#            Created by: ${{ github.actor }}
+#          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+#        if: always()

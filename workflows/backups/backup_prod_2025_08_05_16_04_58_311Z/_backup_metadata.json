@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-08-05T15:07:31.700Z",
+  "backupName": "backup_prod_2025_08_05_16_04_58_311Z",
   "environment": "prod",
-  "totalWorkflows": 1,
-  "successful": 1,
-  "failed": 0,
+  "createdAt": "2025-08-05T16:04:58.853Z",
+  "workflowCount": 1,
+  "failedCount": 0,
   "workflows": [
     {
       "name": "Email Marketing-prod",

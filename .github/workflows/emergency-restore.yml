@@ -1,0 +1,163 @@
+name: Emergency Restore from Backup
+
+permissions:
+  contents: write
+  issues: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_name:
+        description: 'Backup name to restore from (e.g., backup_prod_20241201_143000)'
+        required: true
+      workflows:
+        description: 'Specific workflows to restore (comma-separated base names, leave empty for all)'
+        required: false
+        default: ''
+      confirmation:
+        description: 'Type "CONFIRM" to proceed with restore'
+        required: true
+
+jobs:
+  emergency-restore:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [[ "${{ github.event.inputs.confirmation }}" != "CONFIRM" ]]; then
+            echo "❌ Emergency restore not confirmed. Aborting."
+            exit 1
+          fi
+
+      - name: Emergency restore approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ vars.EMERGENCY_APPROVERS }}
+          minimum-approvals: 1
+          issue-title: "🚨 EMERGENCY RESTORE APPROVAL REQUIRED"
+          issue-body: |
+            # 🚨 EMERGENCY RESTORE REQUEST
+            
+            **Backup:** ${{ github.event.inputs.backup_name }}
+            **Workflows:** ${{ github.event.inputs.workflows || 'ALL WORKFLOWS' }}
+            **Requested by:** ${{ github.actor }}
+            
+            ## ⚠️ CRITICAL WARNINGS
+            - This will OVERWRITE existing production workflows
+            - This action cannot be easily undone
+            
+            ## Emergency Checklist
+            - [ ] Incident has been declared
+            - [ ] Impact has been assessed
+            - [ ] No other resolution path available
+            - [ ] Stakeholders have been notified
+            
+            **Only approve if this is a genuine emergency requiring immediate restoration.**
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Inject API key into existing config
+        run: |
+          jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
+
+      - name: Verify backup exists
+        run: |
+          backup_path="workflows/backups/${{ github.event.inputs.backup_name }}"
+          if [[ ! -d "$backup_path" ]]; then
+            echo "❌ Backup not found: ${{ github.event.inputs.backup_name }}"
+            echo "Available backups:"
+            ls -la workflows/backups/ || echo "No backups directory found"
+            exit 1
+          fi
+          
+          echo "✅ Backup found: $backup_path"
+          echo "Backup contents:"
+          ls -la "$backup_path"
+
+      - name: Create emergency pre-restore backup
+        run: |
+          echo "💾 Creating emergency pre-restore backup..."
+          node scripts/manage-workflows.js backup prod "emergency_pre_restore_$(date +%Y%m%d_%H%M%S)"
+
+      - name: Perform emergency restore
+        run: |
+          echo "🚨 Performing emergency restore from: ${{ github.event.inputs.backup_name }}"
+          
+          if [[ -n "${{ github.event.inputs.workflows }}" ]]; then
+            # Restore specific workflows
+            IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
+          
+            workflows_args=""
+            for workflow in "${WORKFLOWS[@]}"; do
+              workflow=$(echo "$workflow" | xargs) # trim whitespace
+              workflows_args="$workflows_args \"$workflow\""
+            done
+          
+            eval "node scripts/manage-workflows.js restore \"${{ github.event.inputs.backup_name }}\" $workflows_args"
+          else
+            # Restore all workflows
+            node scripts/manage-workflows.js restore "${{ github.event.inputs.backup_name }}"
+          fi
+
+      - name: Verify restore
+        run: |
+          echo "🔍 Verifying restore operation..."
+          node scripts/manage-workflows.js status
+          
+          # Create restore verification report
+          echo "## Emergency Restore Verification" > restore-verification.md
+          echo "" >> restore-verification.md
+          echo "**Backup restored:** ${{ github.event.inputs.backup_name }}" >> restore-verification.md
+          echo "**Workflows:** ${{ github.event.inputs.workflows || 'All workflows from backup' }}" >> restore-verification.md
+          echo "**Restored by:** ${{ github.actor }}" >> restore-verification.md
+          echo "**Date:** $(date -u)" >> restore-verification.md
+          echo "" >> restore-verification.md
+
+      - name: Commit restore summary
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add workflows/backups/
+            git commit -m "emergency: restore from ${{ github.event.inputs.backup_name }} by ${{ github.actor }}"
+            git push
+          fi
+
+#      - name: Notify restore completion
+#        uses: 8398a7/action-slack@v3
+#        with:
+#          status: ${{ job.status }}
+#          channel: '#production-alerts'
+#          text: |
+#            🚨 EMERGENCY RESTORE ${{ job.status }}!
+#
+#            Backup: ${{ github.event.inputs.backup_name }}
+#            Workflows: ${{ github.event.inputs.workflows || 'All' }}
+#            Restored by: ${{ github.actor }}
+#
+#            ⚠️ CRITICAL: Restored workflows are INACTIVE - manual activation required!
+#          webhook_url: ${{ secrets.SLACK_WEBHOOK_EMERGENCY }}
+#        if: always()
+
+      - name: Upload restore artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-restore-${{ github.run_number }}
+          path: |
+            workflows/backups/
+            restore-verification.md
+          retention-days: 365
