@@ -2,6 +2,7 @@ name: Export Development Workflows
 
 permissions:
   contents: write
+  issues: write
 
 on:
   workflow_dispatch:
