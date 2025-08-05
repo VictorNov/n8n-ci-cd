@@ -1,0 +1,18 @@
+{
+  "backupName": "pre_sync_auto_20250805_163806",
+  "environment": "prod",
+  "createdAt": "2025-08-05T16:38:08.060Z",
+  "workflowCount": 1,
+  "failedCount": 0,
+  "workflows": [
+    {
+      "name": "Email Marketing-prod",
+      "baseName": "Email Marketing",
+      "environment": "prod",
+      "fileName": "email_marketing-prod.json",
+      "status": "success",
+      "active": false,
+      "nodeCount": 5
+    }
+  ]
+}
