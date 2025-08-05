@@ -151,8 +151,14 @@ jobs:
           echo "**Date:** $(date -u)" >> sync-summary.md
           echo "**Backup created:** ${{ github.event.inputs.skip_backup != 'true' && 'Yes' || 'No' }}" >> sync-summary.md
           echo "" >> sync-summary.md
-          echo "**⚠️ Important:** All synced workflows are imported as INACTIVE for safety." >> sync-summary.md
-          echo "Please manually activate them in n8n after verification." >> sync-summary.md
+
+      - name: Upload sync artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-sync-${{ github.run_number }}
+          path: |
+            workflows/backups/
+            sync-summary.md
 
 #      - name: Notify production sync
 #        uses: 8398a7/action-slack@v3
@@ -166,11 +172,3 @@ jobs:
 #            Synced by: ${{ github.actor }}
 #          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
 #        if: always()
-
-      - name: Upload sync artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-sync-${{ github.run_number }}
-          path: |
-            workflows/backups/
-            sync-summary.md
