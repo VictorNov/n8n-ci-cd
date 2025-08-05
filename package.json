@@ -19,6 +19,9 @@
     "backup:list": "node scripts/manage-workflows.js list-backups",
     "backup:restore": "node scripts/manage-workflows.js restore",
     "backup:cleanup": "node scripts/manage-workflows.js cleanup-backups",
+    "backup:compare": "node scripts/compare-backups.js",
+    "backup:verify": "node scripts/verify-backup.js",
+    "backup:compare:latest": "node scripts/compare-backups.js $(ls -1t workflows/backups/ | head -n2 | tail -n1) $(ls -1t workflows/backups/ | head -n1)",
 
     "dev:export": "npm run workflows:export:dev",
     "prod:sync": "npm run workflows:sync",
