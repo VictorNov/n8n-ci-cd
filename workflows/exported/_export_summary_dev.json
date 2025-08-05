@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-08-05T14:40:10.048Z",
+  "environment": "dev",
+  "totalWorkflows": 1,
+  "successful": 1,
+  "failed": 0,
+  "workflows": [
+    {
+      "name": "Email Marketing-dev",
+      "baseName": "Email Marketing",
+      "environment": "dev",
+      "fileName": "email_marketing-dev.json",
+      "status": "success",
+      "active": false,
+      "nodeCount": 5
+    }
+  ]
+}
