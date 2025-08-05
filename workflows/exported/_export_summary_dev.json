@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-05T14:32:51.055Z",
+  "timestamp": "2025-08-05T14:35:38.194Z",
   "environment": "dev",
   "totalWorkflows": 1,
   "successful": 1,
@@ -12,7 +12,7 @@
       "fileName": "email_marketing-dev.json",
       "status": "success",
       "active": false,
-      "nodeCount": 2
+      "nodeCount": 5
     }
   ]
 }
