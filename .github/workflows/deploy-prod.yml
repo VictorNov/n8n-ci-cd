@@ -31,16 +31,16 @@ jobs:
           issue-title: "🚀 Production Sync Approval: ${{ github.event.inputs.workflows }}"
           issue-body: |
             ## Production Workflow Sync Request
-            
+
             **Workflows to sync:** ${{ github.event.inputs.workflows }}
             **Requested by:** ${{ github.actor }}
             **Skip backup:** ${{ github.event.inputs.skip_backup }}
-            
+
             ### Pre-sync Checklist
             - [ ] Dev workflows have been tested
             - [ ] No critical issues identified
             - [ ] Stakeholders notified
-            
+
             **⚠️ This will update production workflows. Please review carefully.**
 
   sync-to-production:
@@ -69,24 +69,35 @@ jobs:
         run: |
           echo "💾 Creating backup of production workflows..."
           node scripts/manage-workflows.js export prod
-          
+
           # Create timestamped backup
           timestamp=$(date +%Y%m%d_%H%M%S)
           mkdir -p workflows/backups
           cp -r workflows/exported workflows/backups/backup_prod_$timestamp
           echo "✅ Backup created: workflows/backups/backup_prod_$timestamp"
 
+      - name: Commit production backup
+        if: github.event.inputs.skip_backup != 'true'
+        run: |
+          echo "📝 Committing production backup..."
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add workflows/exported
+          git add workflows/backups
+          git commit -m "📦 Production backup $(date +%Y-%m-%d)"
+          git push
+
       - name: Validate workflows before sync
         run: |
           echo "🔍 Validating workflows before production sync..."
-          
+
           # Parse workflow names
           IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
-          
+
           for workflow in "${WORKFLOWS[@]}"; do
             workflow=$(echo "$workflow" | xargs) # trim whitespace
             echo "Validating dev workflow: ${workflow}-dev"
-          
+
             # Add validation logic here
             # For now, just check if dev version exists
             node -e "
@@ -106,10 +117,10 @@ jobs:
       - name: Sync workflows to production
         run: |
           echo "🚀 Syncing workflows to production..."
-          
+
           # Parse and sync each workflow
           IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
-          
+
           for workflow in "${WORKFLOWS[@]}"; do
             workflow=$(echo "$workflow" | xargs) # trim whitespace
             echo "Syncing: $workflow"
@@ -119,14 +130,14 @@ jobs:
       - name: Post-sync verification
         run: |
           echo "🔍 Verifying production sync..."
-          
+
           # Check that all workflows were synced successfully
           IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
-          
+
           for workflow in "${WORKFLOWS[@]}"; do
             workflow=$(echo "$workflow" | xargs)
             echo "Checking production workflow: ${workflow}-prod"
-          
+
             node -e "
               const manager = require('./scripts/manage-workflows.js');
               const m = new manager();
@@ -151,6 +162,17 @@ jobs:
           echo "**Date:** $(date -u)" >> sync-summary.md
           echo "**Backup created:** ${{ github.event.inputs.skip_backup != 'true' && 'Yes' || 'No' }}" >> sync-summary.md
           echo "" >> sync-summary.md
+
+      - name: Commit sync summary
+        run: |
+          echo "📝 Committing sync summary..."
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
+          mkdir -p workflows/sync-summaries
+          cp sync-summary.md workflows/sync-summaries/sync-summary-$(date +%Y%m%d_%H%M%S).md
+          git add workflows/sync-summaries
+          git commit -m "📊 Production sync summary $(date +%Y-%m-%d)"
+          git push
 
       - name: Upload sync artifacts
         uses: actions/upload-artifact@v4
