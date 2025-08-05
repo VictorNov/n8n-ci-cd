@@ -164,9 +164,7 @@ jobs:
             
             Workflows: ${{ github.event.inputs.workflows }}
             Synced by: ${{ github.actor }}
-            
-            ⚠️ Workflows are imported as INACTIVE - please activate manually after verification.
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+#          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         if: always()
 
       - name: Upload sync artifacts
