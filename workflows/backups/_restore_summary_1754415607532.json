@@ -1,0 +1,15 @@
+{
+  "restoredAt": "2025-08-05T17:40:07.532Z",
+  "backupName": "pre_sync_New Feature_20250805_173656",
+  "totalWorkflows": 1,
+  "successful": 1,
+  "failed": 0,
+  "results": [
+    {
+      "workflowName": "Email Marketing-prod",
+      "action": "updated",
+      "status": "success",
+      "previouslyActive": false
+    }
+  ]
+}
