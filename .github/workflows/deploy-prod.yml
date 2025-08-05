@@ -1,0 +1,187 @@
+name: Sync Workflows to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflows:
+        description: 'Workflow base names to sync (comma-separated)'
+        required: true
+      skip_backup:
+        description: 'Skip backup creation'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  approve-production-sync:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Manual approval required
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ vars.PRODUCTION_APPROVERS }}
+          minimum-approvals: 1
+          issue-title: "🚀 Production Sync Approval: ${{ github.event.inputs.workflows }}"
+          issue-body: |
+            ## Production Workflow Sync Request
+            
+            **Workflows to sync:** ${{ github.event.inputs.workflows }}
+            **Requested by:** ${{ github.actor }}
+            **Skip backup:** ${{ github.event.inputs.skip_backup }}
+            
+            ### Pre-sync Checklist
+            - [ ] Dev workflows have been tested
+            - [ ] No critical issues identified
+            - [ ] Stakeholders notified
+            
+            **⚠️ This will update production workflows. Please review carefully.**
+
+  sync-to-production:
+    runs-on: ubuntu-latest
+    needs: approve-production-sync
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create n8n configuration
+        run: |
+          cat > config/n8n-config.json << EOF
+          {
+            "n8n": {
+              "baseUrl": "${{ secrets.N8N_CLOUD_URL }}",
+              "apiKey": "${{ secrets.N8N_API_KEY }}",
+              "webhookUrl": "${{ secrets.N8N_WEBHOOK_URL }}"
+            },
+            "deployment": {
+              "requireApprovalForProd": true,
+              "backupBeforeDeployment": true,
+              "validateWorkflows": true
+            }
+          }
+          EOF
+
+      - name: Create backup of production workflows
+        if: github.event.inputs.skip_backup != 'true'
+        run: |
+          echo "💾 Creating backup of production workflows..."
+          node scripts/manage-workflows.js export prod
+          
+          # Create timestamped backup
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          mkdir -p workflows/backups
+          cp -r workflows/exported workflows/backups/backup_prod_$timestamp
+          echo "✅ Backup created: workflows/backups/backup_prod_$timestamp"
+
+      - name: Validate workflows before sync
+        run: |
+          echo "🔍 Validating workflows before production sync..."
+          
+          # Parse workflow names
+          IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
+          
+          for workflow in "${WORKFLOWS[@]}"; do
+            workflow=$(echo "$workflow" | xargs) # trim whitespace
+            echo "Validating dev workflow: ${workflow}-dev"
+          
+            # Add validation logic here
+            # For now, just check if dev version exists
+            node -e "
+              const manager = require('./scripts/manage-workflows.js');
+              const m = new manager();
+              m.getAllWorkflows().then(workflows => {
+                const devWorkflow = workflows.find(w => w.name === '${workflow}-dev');
+                if (!devWorkflow) {
+                  console.error('❌ Dev workflow not found: ${workflow}-dev');
+                  process.exit(1);
+                }
+                console.log('✅ Found dev workflow: ${workflow}-dev');
+              });
+            "
+          done
+
+      - name: Sync workflows to production
+        run: |
+          echo "🚀 Syncing workflows to production..."
+          
+          # Parse and sync each workflow
+          IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
+          
+          for workflow in "${WORKFLOWS[@]}"; do
+            workflow=$(echo "$workflow" | xargs) # trim whitespace
+            echo "Syncing: $workflow"
+            node scripts/manage-workflows.js sync "$workflow"
+          done
+
+      - name: Post-sync verification
+        run: |
+          echo "🔍 Verifying production sync..."
+          
+          # Check that all workflows were synced successfully
+          IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
+          
+          for workflow in "${WORKFLOWS[@]}"; do
+            workflow=$(echo "$workflow" | xargs)
+            echo "Checking production workflow: ${workflow}-prod"
+          
+            node -e "
+              const manager = require('./scripts/manage-workflows.js');
+              const m = new manager();
+              m.getAllWorkflows().then(workflows => {
+                const prodWorkflow = workflows.find(w => w.name === '${workflow}-prod');
+                if (!prodWorkflow) {
+                  console.error('❌ Production workflow not found after sync: ${workflow}-prod');
+                  process.exit(1);
+                }
+                console.log('✅ Verified production workflow: ${workflow}-prod');
+              });
+            "
+          done
+
+      - name: Create sync summary
+        run: |
+          echo "## Production Sync Summary" > sync-summary.md
+          echo "" >> sync-summary.md
+          echo "**Synced workflows:** ${{ github.event.inputs.workflows }}" >> sync-summary.md
+          echo "**Approved by:** Production approvers" >> sync-summary.md
+          echo "**Deployed by:** ${{ github.actor }}" >> sync-summary.md
+          echo "**Date:** $(date -u)" >> sync-summary.md
+          echo "**Backup created:** ${{ github.event.inputs.skip_backup != 'true' && 'Yes' || 'No' }}" >> sync-summary.md
+          echo "" >> sync-summary.md
+          echo "**⚠️ Important:** All synced workflows are imported as INACTIVE for safety." >> sync-summary.md
+          echo "Please manually activate them in n8n after verification." >> sync-summary.md
+
+      - name: Notify production sync
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#prod-deployments'
+          text: |
+            🚀 PRODUCTION SYNC ${{ job.status }}!
+            
+            Workflows: ${{ github.event.inputs.workflows }}
+            Synced by: ${{ github.actor }}
+            
+            ⚠️ Workflows are imported as INACTIVE - please activate manually after verification.
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()
+
+      - name: Upload sync artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-sync-${{ github.run_number }}
+          path: |
+            workflows/backups/
+            sync-summary.md

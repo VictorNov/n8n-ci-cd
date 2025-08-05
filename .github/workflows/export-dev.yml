@@ -1,0 +1,98 @@
+name: Export Development Workflows
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflows:
+        description: 'Workflow base names to export (comma-separated, leave empty for all)'
+        required: false
+        default: ''
+
+jobs:
+  export-dev:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create n8n configuration
+        run: |
+          cat > config/n8n-config.json << EOF
+          {
+            "n8n": {
+              "baseUrl": "${{ secrets.N8N_CLOUD_URL }}",
+              "apiKey": "${{ secrets.N8N_API_KEY }}",
+              "webhookUrl": "${{ secrets.N8N_WEBHOOK_URL }}"
+            },
+            "deployment": {
+              "requireApprovalForProd": true,
+              "backupBeforeDeployment": true,
+              "validateWorkflows": true
+            }
+          }
+          EOF
+
+      - name: Export development workflows
+        run: |
+          if [[ -n "${{ github.event.inputs.workflows }}" ]]; then
+            # Export specific workflows
+            IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
+            for workflow in "${WORKFLOWS[@]}"; do
+              workflow=$(echo "$workflow" | xargs) # trim whitespace
+              echo "Exporting workflow: $workflow"
+              node scripts/manage-workflows.js export dev "$workflow"
+            done
+          else
+            # Export all managed dev workflows
+            node scripts/manage-workflows.js export dev
+          fi
+
+      - name: Commit exported workflows
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add workflows/exported/
+            git commit -m "chore: export dev workflows $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Create export summary
+        run: |
+          echo "## Development Workflow Export Summary" > export-summary.md
+          echo "" >> export-summary.md
+          echo "**Triggered by:** ${{ github.actor }}" >> export-summary.md
+          echo "**Date:** $(date -u)" >> export-summary.md
+          echo "**Specific workflows:** ${{ github.event.inputs.workflows || 'All managed workflows' }}" >> export-summary.md
+          echo "" >> export-summary.md
+          
+          if [[ -f "workflows/exported/_export_summary_dev.json" ]]; then
+            echo "**Results:**" >> export-summary.md
+            node -e "
+              const summary = JSON.parse(require('fs').readFileSync('workflows/exported/_export_summary_dev.json', 'utf8'));
+              console.log('- Total workflows: ' + summary.totalWorkflows);
+              console.log('- Successful: ' + summary.successful);
+              console.log('- Failed: ' + summary.failed);
+            " >> export-summary.md
+          fi
+
+      - name: Upload export artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-workflows-export-${{ github.run_number }}
+          path: |
+            workflows/exported/
+            export-summary.md
