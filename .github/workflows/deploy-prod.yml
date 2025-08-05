@@ -164,7 +164,6 @@ jobs:
             
             Workflows: ${{ github.event.inputs.workflows }}
             Synced by: ${{ github.actor }}
-#          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         if: always()
 
       - name: Upload sync artifacts
