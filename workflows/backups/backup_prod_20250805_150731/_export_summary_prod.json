@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-08-05T15:07:31.700Z",
+  "environment": "prod",
+  "totalWorkflows": 1,
+  "successful": 1,
+  "failed": 0,
+  "workflows": [
+    {
+      "name": "Email Marketing-prod",
+      "baseName": "Email Marketing",
+      "environment": "prod",
+      "fileName": "email_marketing-prod.json",
+      "status": "success",
+      "active": false,
+      "nodeCount": 5
+    }
+  ]
+}
