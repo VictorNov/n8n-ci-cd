@@ -136,7 +136,7 @@ class WorkflowManager {
 
     async exportSingleWorkflow(workflow, exportDir) {
         const response = await this.client.get(`/api/v1/workflows/${workflow.id}`);
-        const fullWorkflow = response.data.data;
+        const fullWorkflow = response.data;
 
         // Clean workflow data
         const cleanWorkflow = {
@@ -253,7 +253,7 @@ class WorkflowManager {
                 status: 'success',
                 devName: devWorkflow.name,
                 prodName: prodWorkflowName,
-                prodId: createResponse.data.data.id
+                prodId: createResponse.data.id
             };
         }
 
