@@ -14,8 +14,8 @@
       "tags": ["marketing", "email"],
       "environments": ["dev", "prod"],
       "variables": {
-        "dev": { "var1": "some dev variable" },
-        "prod": { "var1": "some prod variable" }
+        "dev": { "var1": "some dev variable gh action" },
+        "prod": { "var1": "some prod variable gh action" }
       },
       "autoSync": true,
       "requiresApproval": true
