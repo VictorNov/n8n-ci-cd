@@ -1,37 +1,17 @@
 {
   "managedWorkflows": [
     {
-      "baseName": "Customer Onboarding",
-      "description": "New customer onboarding automation",
-      "tags": ["customer", "onboarding"],
-      "environments": ["dev", "prod"],
-      "autoSync": true,
-      "requiresApproval": true
-    },
-    {
       "baseName": "Email Marketing",
       "description": "Email campaign automation",
       "tags": ["marketing", "email"],
       "environments": ["dev", "prod"],
       "autoSync": true,
-      "requiresApproval": true
+      "requiresApproval": true,
+      "variables": {
+        "dev": { "var1": "some dev variable" },
+        "prod": { "var1": "some prod variable" }
+      },
     },
-    {
-      "baseName": "Data Sync",
-      "description": "CRM to database synchronization",
-      "tags": ["data", "sync", "crm"],
-      "environments": ["dev", "prod"],
-      "autoSync": false,
-      "requiresApproval": true
-    },
-    {
-      "baseName": "Report Generation",
-      "description": "Weekly reports automation",
-      "tags": ["reports", "analytics"],
-      "environments": ["dev", "prod"],
-      "autoSync": true,
-      "requiresApproval": false
-    }
   ],
   "settings": {
     "devSuffix": "-dev",

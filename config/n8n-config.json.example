@@ -1,7 +1,7 @@
 {
   "n8n": {
-    "baseUrl": "https://kezlya.app.n8n.cloud",
-    "webhookUrl": "https://kezlya.app.n8n.cloud/webhook"
+    "baseUrl": "https://your_n8n_base_url",
+    "webhookUrl": "https://your_n8n_base_url/webhook"
   },
   "deployment": {
     "requireApprovalForProd": true,
