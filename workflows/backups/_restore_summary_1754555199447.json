@@ -1,0 +1,15 @@
+{
+  "restoredAt": "2025-08-07T08:26:39.447Z",
+  "backupName": "pre_sync_auto_20250807_082354",
+  "totalWorkflows": 1,
+  "successful": 1,
+  "failed": 0,
+  "results": [
+    {
+      "workflowName": "Email Marketing-prod",
+      "action": "updated",
+      "status": "success",
+      "previouslyActive": false
+    }
+  ]
+}
