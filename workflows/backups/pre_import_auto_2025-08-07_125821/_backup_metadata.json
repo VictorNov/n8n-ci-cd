@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-08-07T10:58:15.753Z",
+  "backupName": "pre_import_auto_2025-08-07_125821",
   "environment": "dev",
-  "totalWorkflows": 1,
-  "successful": 1,
-  "failed": 0,
+  "createdAt": "2025-08-07T10:58:22.008Z",
+  "workflowCount": 1,
+  "failedCount": 0,
   "workflows": [
     {
       "name": "Email Marketing-dev",

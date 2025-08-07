@@ -171,26 +171,32 @@ class WorkflowManager {
             .toLowerCase() + '.json';
     }
 
-    async syncDevToProd(workflowBaseNames) {
-        console.log(`🔄 Syncing workflows from dev to prod...`);
+    async deployDevToProd(workflowBaseNames) {
+        console.log(`🔄 Deploying workflows from dev to prod...`);
+
+        // Create backup before deploying if enabled in settings
+        if (this.managedWorkflows.settings.backupBeforeDeploy) {
+            console.log(`💾 Creating backup before deploying to production...`);
+            await this.createBackup('prod', `pre_deploy_auto_${new Date().toISOString().replace(/[:.]/g, '').split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '')}`);
+        }
 
         // First, export dev versions
         const devWorkflows = await this.getSpecificWorkflows(workflowBaseNames, 'dev');
 
         if (devWorkflows.length === 0) {
-            console.log('❌ No dev workflows found to sync');
+            console.log('❌ No dev workflows found to deploy');
             return [];
         }
 
-        const syncResults = [];
+        const deployResults = [];
 
         for (const devWorkflow of devWorkflows) {
             try {
-                const result = await this.syncSingleWorkflow(devWorkflow);
-                syncResults.push(result);
+                const result = await this.deploySingleWorkflow(devWorkflow);
+                deployResults.push(result);
             } catch (error) {
-                console.error(`❌ Failed to sync ${devWorkflow.name}:`, error.message);
-                syncResults.push({
+                console.error(`❌ Failed to deploy ${devWorkflow.name}:`, error.message);
+                deployResults.push({
                     baseName: this.getBaseNameFromWorkflowName(devWorkflow.name),
                     status: 'failed',
                     error: error.message
@@ -198,14 +204,14 @@ class WorkflowManager {
             }
         }
 
-        return syncResults;
+        return deployResults;
     }
 
-    async syncSingleWorkflow(devWorkflow) {
+    async deploySingleWorkflow(devWorkflow) {
         const baseName = this.getBaseNameFromWorkflowName(devWorkflow.name);
         const prodWorkflowName = baseName + this.getSuffix('prod');
 
-        console.log(`🔄 Syncing: ${devWorkflow.name} → ${prodWorkflowName}`);
+        console.log(`🔄 Deploying: ${devWorkflow.name} → ${prodWorkflowName}`);
 
         // Get dev workflow details
         const devResponse = await this.client.get(`/api/v1/workflows/${devWorkflow.id}`);
@@ -227,6 +233,9 @@ class WorkflowManager {
             shared: undefined,
             tags: undefined,
         };
+
+        // Inject environment variables if available
+        this.injectEnvironmentVariables(prodWorkflowData, baseName, 'prod');
 
         // Check if prod version already exists
         const allWorkflows = await this.getAllWorkflows();
@@ -285,12 +294,17 @@ class WorkflowManager {
                     const specificWorkflows = args.slice(1);
                     return await this.exportManagedWorkflows(environment, specificWorkflows.length > 0 ? specificWorkflows : null);
 
-                case 'sync':
-                    const workflowsToSync = args.length > 0 ? args : null;
-                    if (!workflowsToSync) {
-                        throw new Error('Please specify workflow base names to sync');
+                case 'import':
+                    const importEnv = args[0] || 'dev';
+                    const workflowsToImport = args.slice(1);
+                    return await this.importLocalWorkflows(importEnv, workflowsToImport.length > 0 ? workflowsToImport : null);
+
+                case 'deploy':
+                    const workflowsToDeploy = args.length > 0 ? args : null;
+                    if (!workflowsToDeploy) {
+                        throw new Error('Please specify workflow base names to deploy');
                     }
-                    return await this.syncDevToProd(workflowsToSync);
+                    return await this.deployDevToProd(workflowsToDeploy);
 
                 case 'list':
                     const listEnv = args[0] || null;
@@ -329,7 +343,8 @@ class WorkflowManager {
                 default:
                     console.log('Available commands:');
                     console.log('  export [environment] [workflow1] [workflow2] - Export specific or all managed workflows');
-                    console.log('  sync [workflow1] [workflow2] - Sync dev workflows to prod');
+                    console.log('  import [environment] [workflow1] [workflow2] - Import local workflow files to n8n');
+                    console.log('  deploy [workflow1] [workflow2] - Deploy dev workflows to prod');
                     console.log('  list [environment] - List managed workflows');
                     console.log('  status - Show status of all managed workflows');
                     console.log('  backup [environment] [custom-name] - Create backup of workflows');
@@ -679,6 +694,266 @@ class WorkflowManager {
         }
 
         console.log('✅ Backup cleanup completed');
+    }
+
+    async importLocalWorkflows(environment, specificWorkflows = null) {
+        console.log(`🔄 Importing local workflows to ${environment}...`);
+
+        // Create backup before importing if enabled in settings
+        if (this.managedWorkflows.settings.backupBeforeImport) {
+            console.log(`💾 Creating backup before importing to ${environment}...`);
+            await this.createBackup(environment, `pre_import_auto_${new Date().toISOString().replace(/[:.]/g, '').split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '')}`);
+        }
+
+        const exportDir = path.join('workflows', 'exported');
+        if (!fs.existsSync(exportDir)) {
+            throw new Error(`Export directory not found: ${exportDir}`);
+        }
+
+        // Get all workflow files in the exported directory
+        const workflowFiles = fs.readdirSync(exportDir)
+            .filter(file => file.endsWith('.json') && !file.startsWith('_'));
+
+        if (workflowFiles.length === 0) {
+            throw new Error('No workflow files found in export directory');
+        }
+
+        console.log(`📋 Found ${workflowFiles.length} workflow files in export directory`);
+
+        // Filter workflows if specific ones requested
+        let filesToImport = workflowFiles;
+        if (specificWorkflows && specificWorkflows.length > 0) {
+            const specificFiles = specificWorkflows.map(baseName => {
+                const workflowName = baseName + this.getSuffix(environment);
+                return this.generateFileName(workflowName);
+            });
+
+            filesToImport = workflowFiles.filter(file => {
+                return specificFiles.some(specificFile => file === specificFile);
+            });
+
+            console.log(`🎯 Filtering to ${filesToImport.length} specific workflows`);
+        }
+
+        if (filesToImport.length === 0) {
+            console.log('❌ No matching workflow files found');
+            return [];
+        }
+
+        // Get current workflows for comparison
+        const currentWorkflows = await this.getAllWorkflows();
+        const importResults = [];
+
+        for (const workflowFile of filesToImport) {
+            try {
+                const result = await this.importSingleWorkflow(exportDir, workflowFile, currentWorkflows, environment);
+                importResults.push(result);
+            } catch (error) {
+                console.error(`❌ Failed to import ${workflowFile}:`, error.message);
+                importResults.push({
+                    fileName: workflowFile,
+                    status: 'failed',
+                    error: error.message
+                });
+            }
+        }
+
+        // Create import summary
+        this.createImportSummary(importResults, environment);
+
+        console.log(`✅ Import completed: ${importResults.filter(r => r.status === 'success').length} successful, ${importResults.filter(r => r.status === 'failed').length} failed`);
+
+        return importResults;
+    }
+
+    async importSingleWorkflow(exportDir, workflowFile, currentWorkflows, environment) {
+        const filePath = path.join(exportDir, workflowFile);
+        const workflowData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+
+        // Ensure the workflow has the correct environment suffix
+        const baseName = this.getBaseNameFromWorkflowName(workflowData.name);
+        const targetName = baseName + this.getSuffix(environment);
+
+        // If the workflow name doesn't match the target environment, update it
+        if (workflowData.name !== targetName) {
+            console.log(`⚠️ Workflow name mismatch: ${workflowData.name} → ${targetName}`);
+            workflowData.name = targetName;
+        }
+
+        // Inject environment variables if available
+        this.injectEnvironmentVariables(workflowData, baseName, environment);
+
+        console.log(`🔄 Importing: ${targetName}`);
+
+        // Find existing workflow with same name
+        const existingWorkflow = currentWorkflows.find(w => w.name === targetName);
+
+        // Clean workflow data for import
+        const cleanWorkflowData = {
+            ...workflowData,
+            id: undefined,
+            active: undefined,
+            isArchived: undefined,
+            createdAt: undefined,
+            updatedAt: undefined,
+            versionId: undefined,
+            meta: undefined,
+            pinData: undefined,
+            triggerCount: undefined,
+            shared: undefined,
+            tags: undefined,
+        };
+
+        let result;
+        if (existingWorkflow) {
+            // Update existing workflow
+            const updateResponse = await this.client.put(`/api/v1/workflows/${existingWorkflow.id}`, cleanWorkflowData);
+            result = {
+                fileName: workflowFile,
+                workflowName: targetName,
+                action: 'updated',
+                status: 'success',
+                workflowId: existingWorkflow.id,
+                previouslyActive: existingWorkflow.active
+            };
+            console.log(`  ✅ Updated: ${targetName} (was ${existingWorkflow.active ? 'active' : 'inactive'})`);
+        } else {
+            // Create new workflow
+            const createResponse = await this.client.post('/api/v1/workflows', cleanWorkflowData);
+            result = {
+                fileName: workflowFile,
+                workflowName: targetName,
+                action: 'created',
+                status: 'success',
+                workflowId: createResponse.data.id,
+                previouslyActive: false
+            };
+            console.log(`  ✅ Created: ${targetName}`);
+        }
+
+        return result;
+    }
+
+    injectEnvironmentVariables(workflowData, baseName, environment) {
+        // Find the workflow configuration in managed-workflows.json
+        const workflowConfig = this.managedWorkflows.managedWorkflows.find(w => w.baseName === baseName);
+
+        // Check if workflow config exists and has variables for the specified environment
+        if (!workflowConfig || !workflowConfig.variables || !workflowConfig.variables[environment]) {
+            return; // No variables to inject
+        }
+
+        const envVariables = workflowConfig.variables[environment];
+        console.log(`🔧 Injecting ${environment} variables for ${baseName}`);
+
+        // Find the "Configuration" or "Variables" node in the workflow
+        if (workflowData.nodes && Array.isArray(workflowData.nodes)) {
+            let configNode = workflowData.nodes.find(node => 
+                node.name === 'Configuration' || node.name === 'Variables'
+            );
+
+            // If no Configuration node exists, create one
+            if (!configNode) {
+                console.log(`📝 Creating new Configuration node for ${baseName}`);
+
+                // Generate a unique ID for the new node
+                const nodeId = `config-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+                // Create a new Code node
+                configNode = {
+                    parameters: {
+                        jsCode: "return {};" // Default empty object
+                    },
+                    type: "n8n-nodes-base.code",
+                    typeVersion: 2,
+                    position: [
+                        -720, // Position it at the start of the workflow
+                        -80
+                    ],
+                    id: nodeId,
+                    name: "Configuration"
+                };
+
+                // Add the node to the workflow
+                workflowData.nodes.push(configNode);
+
+                // If there's a trigger node, connect the Configuration node after it
+                const triggerNode = workflowData.nodes.find(node => 
+                    node.type.includes('Trigger') || 
+                    node.name.includes('Trigger') || 
+                    node.name.includes('When')
+                );
+
+                if (triggerNode && workflowData.connections) {
+                    // Create connection from trigger to config node
+                    if (!workflowData.connections[triggerNode.name]) {
+                        workflowData.connections[triggerNode.name] = { main: [[]] };
+                    }
+
+                    workflowData.connections[triggerNode.name].main[0] = [
+                        {
+                            node: "Configuration",
+                            type: "main",
+                            index: 0
+                        }
+                    ];
+
+                    // Create empty connection from config node
+                    workflowData.connections["Configuration"] = { main: [[]] };
+                }
+
+                console.log(`✅ Created new Configuration node in ${baseName}`);
+            }
+
+            // Update the Configuration node with environment variables
+            if (configNode.type === 'n8n-nodes-base.code') {
+                // Create a JavaScript object string from the variables
+                const variablesObj = JSON.stringify(envVariables, null, 2);
+                configNode.parameters.jsCode = `return ${variablesObj};`;
+                console.log(`✅ Updated ${configNode.name} node with ${environment} variables`);
+            } else {
+                // For non-Code nodes, replace it with a Code node
+                console.log(`⚠️ ${configNode.name} node is not a Code node. Replacing with a Code node.`);
+
+                // Save the position and connections of the existing node
+                const position = configNode.position;
+                const nodeId = configNode.id;
+                const nodeName = configNode.name;
+
+                // Replace the node with a Code node
+                configNode.type = "n8n-nodes-base.code";
+                configNode.typeVersion = 2;
+                configNode.parameters = {
+                    jsCode: `return ${JSON.stringify(envVariables, null, 2)};`
+                };
+                configNode.position = position;
+                configNode.id = nodeId;
+                configNode.name = nodeName;
+
+                console.log(`✅ Replaced ${nodeName} with a Code node and updated with ${environment} variables`);
+            }
+        }
+    }
+
+    createImportSummary(results, environment) {
+        const summary = {
+            importedAt: new Date().toISOString(),
+            environment: environment,
+            totalWorkflows: results.length,
+            successful: results.filter(r => r.status === 'success').length,
+            failed: results.filter(r => r.status === 'failed').length,
+            results: results.map(r => ({
+                workflowName: r.workflowName || r.fileName,
+                action: r.action,
+                status: r.status,
+                error: r.error,
+                previouslyActive: r.previouslyActive
+            }))
+        };
+
+        const summaryPath = path.join('workflows', 'exported', `_import_summary_${environment}.json`);
+        fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+        console.log(`📊 Import summary saved: ${summaryPath}`);
     }
 }
 

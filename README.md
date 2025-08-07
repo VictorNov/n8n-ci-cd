@@ -84,7 +84,7 @@ npm run interactive
 
 # Or use individual commands
 npm run workflows:export:dev
-npm run workflows:sync "Customer Onboarding"
+npm run workflows:deploy "Customer Onboarding"
 ```
 
 ## 📚 Prerequisites
@@ -178,7 +178,7 @@ Edit `workflows/managed-workflows.json`:
   "settings": {
     "devSuffix": "-dev",
     "prodSuffix": "-prod",
-    "backupBeforeSync": true,
+    "backupBeforeDeploy": true,
     "validateBeforeImport": true
   }
 }
@@ -222,6 +222,10 @@ Each workflow in `managed-workflows.json` supports these options:
   "description": "What this workflow does",
   "tags": ["tag1", "tag2"],             // Optional: for organization
   "environments": ["dev", "prod"],       // Which environments to manage
+  "variables": {                         // Environment-specific variables
+    "dev": { "var1": "dev value" },
+    "prod": { "var1": "prod value" }
+  },
   "autoSync": false,                     // Auto-sync dev to prod (not recommended)
   "requiresApproval": true,              // Require approval for prod deployment
   "owner": "team-name",                  // Optional: responsible team
@@ -241,7 +245,7 @@ Configure global settings in `managed-workflows.json`:
     "devSuffix": "-dev",                 // Development suffix
     "prodSuffix": "-prod",               // Production suffix
     "stagingSuffix": "-staging",         // Optional staging suffix
-    "backupBeforeSync": true,            // Auto-backup before production sync
+    "backupBeforeDeploy": true,            // Auto-backup before production deployment
     "validateBeforeImport": true,        // Validate workflows before import
     "requireManualActivation": true,     // Keep workflows inactive after import
     "maxBackupsToKeep": 10              // Automatic backup cleanup
@@ -269,8 +273,14 @@ git add workflows/exported/
 git commit -m "feat: improve customer onboarding flow"
 git push
 
-# 5. When ready for production
-npm run workflows:sync "Customer Onboarding"
+# 5. Make local changes to workflow files
+#    (Edit files in workflows/exported/)
+
+# 6. Push local changes back to n8n dev environment
+npm run workflows:import:dev "Customer Onboarding"
+
+# 7. When ready for production
+npm run workflows:deploy "Customer Onboarding"
 ```
 
 ### Using Interactive Mode (Recommended)
@@ -281,11 +291,12 @@ npm run interactive
 
 # Follow the menu:
 # 1. Export development workflows     ← Export after making changes
-# 2. Sync workflows to production     ← Deploy to production  
-# 3. View workflow status             ← Check current state
-# 4. List managed workflows           ← See all managed workflows
-# 5. Backup operations                ← Manage backups
-# 6. Exit
+# 2. Import local workflows to dev    ← Push local changes to n8n
+# 3. Deploy workflows to production     ← Deploy to production
+# 4. View workflow status             ← Check current state
+# 5. List managed workflows           ← See all managed workflows
+# 6. Backup operations                ← Manage backups
+# 7. Exit
 ```
 
 ### Quick Commands
@@ -297,8 +308,11 @@ npm run workflows:status
 # Export specific workflows
 npm run workflows:export:dev "Customer Onboarding" "Email Marketing"
 
-# Sync specific workflow to production
-npm run workflows:sync "Customer Onboarding"
+# Import local workflow files to n8n dev environment
+npm run workflows:import:dev "Customer Onboarding" "Email Marketing"
+
+# Deploy specific workflow to production
+npm run workflows:deploy "Customer Onboarding"
 
 # Create backup before making changes
 npm run backup:create:prod
@@ -315,7 +329,9 @@ npm run backup:list
 |---------|-------------|---------|
 | `npm run workflows:export:dev` | Export all dev workflows | |
 | `npm run workflows:export:prod` | Export all prod workflows | |
-| `npm run workflows:sync "Name"` | Sync dev workflow to prod | `npm run workflows:sync "Customer Onboarding"` |
+| `npm run workflows:import:dev` | Import local files to dev | `npm run workflows:import:dev "Customer Onboarding"` |
+| `npm run workflows:import:prod` | Import local files to prod | `npm run workflows:import:prod "Email Marketing"` |
+| `npm run workflows:deploy "Name"` | Deploy dev workflow to prod | `npm run workflows:deploy "Customer Onboarding"` |
 | `npm run workflows:list` | List all managed workflows | |
 | `npm run workflows:list:dev` | List dev workflows only | |
 | `npm run workflows:status` | Show detailed status report | |
@@ -357,11 +373,11 @@ npm run backup:list
 
 **Result**: Exports workflows to Git repository
 
-#### 2. Sync Workflows to Production
+#### 2. Deploy Workflows to Production
 **When to use**: Deploy tested workflows to production
 
 **Steps**:
-1. Go to **Actions** → **"Sync Workflows to Production"**
+1. Go to **Actions** → **"Deploy Workflows to Production"**
 2. Click **"Run workflow"**
 3. **Workflows**: Enter comma-separated names: `Customer Onboarding, Email Marketing`
 4. **Skip backup**: Leave unchecked (recommended)
@@ -370,7 +386,7 @@ npm run backup:list
 
 **Result**:
 - Creates automatic backup
-- Syncs dev workflows to prod versions
+- Deploys dev workflows to prod versions
 - Workflows imported as INACTIVE (safety)
 - Slack notification sent
 
@@ -436,7 +452,7 @@ workflows/backups/
 | Type | When Created | Naming Pattern | Purpose |
 |------|--------------|----------------|---------|
 | **Manual** | `npm run backup:create` | `backup_prod_YYYYMMDD_HHMMSS` | Before major changes |
-| **Pre-sync** | Before production sync | `pre_sync_auto_YYYYMMDD_HHMMSS` | Automatic safety backup |
+| **Pre-deploy** | Before production deployment | `pre_deploy_auto_YYYYMMDD_HHMMSS` | Automatic safety backup |
 | **Daily** | GitHub Actions schedule | `daily_auto_YYYYMMDD_HHMMSS` | Regular automated backup |
 | **Emergency** | Before emergency restore | `emergency_pre_restore_YYYYMMDD_HHMMSS` | Emergency safety backup |
 
@@ -468,7 +484,7 @@ npm run backup:list
      Created: 12/1/2024, 2:30:00 PM
      Workflows: 5
 
-  📦 pre_sync_auto_20241201_120000
+  📦 pre_deploy_auto_20241201_120000
      Created: 12/1/2024, 12:00:00 PM
      Workflows: 5
 ```
@@ -538,7 +554,7 @@ Found 2 difference(s):
    ```bash
    # Create incident backup first
    npm run backup:create:prod "incident-$(date +%Y%m%d-%H%M)"
-   
+
    # List recent backups
    npm run backup:list
    ```
@@ -546,7 +562,7 @@ Found 2 difference(s):
 2. **Quick Local Restore**
    ```bash
    # Restore specific broken workflow
-   node scripts/manage-workflows.js restore "pre_sync_auto_20241201_120000" "Broken Workflow"
+   node scripts/manage-workflows.js restore "pre_deploy_auto_20241201_120000" "Broken Workflow"
    ```
 
 3. **GitHub Actions Emergency Restore**
@@ -594,10 +610,10 @@ Found 2 difference(s):
    npm run backup:create:prod "before-v2-release"
    ```
 
-2. **Use selective sync for safer deployments**
+2. **Use selective deployment for safer deployments**
    ```bash
-   # Sync one workflow at a time for critical changes
-   npm run workflows:sync "Customer Onboarding"
+   # Deploy one workflow at a time for critical changes
+   npm run workflows:deploy "Customer Onboarding"
    ```
 
 3. **Verify after deployment**
@@ -762,6 +778,75 @@ config.managedWorkflows.forEach(w => console.log('-', w.baseName, '(' + w.enviro
 
 ## 🚀 Advanced Features
 
+### Environment Variables Injection
+
+This feature allows you to define environment-specific variables in `managed-workflows.json` and automatically inject them into your workflows during import or deployment.
+
+#### How It Works
+
+1. Define variables in `managed-workflows.json`:
+```json
+{
+  "baseName": "Email Marketing",
+  "description": "Email campaign automation",
+  "environments": ["dev", "prod"],
+  "variables": {
+    "dev": { 
+      "var1": "dev value",
+      "apiUrl": "https://dev-api.example.com" 
+    },
+    "prod": { 
+      "var1": "prod value",
+      "apiUrl": "https://api.example.com" 
+    }
+  }
+}
+```
+
+2. Create a "Configuration" or "Variables" node in your workflow:
+   - Use a Code node named either "Configuration" or "Variables"
+   - The system will automatically find this node and inject the appropriate variables
+   - If no such node exists, the system will create a Code node named "Configuration" for you
+   - If a node with the right name exists but is not a Code node, it will be converted to a Code node
+
+3. During import or deployment:
+   - When importing to dev: dev variables are injected
+   - When deploying to prod: prod variables are injected
+
+#### Example
+
+In your n8n workflow, create a Code node named "Configuration":
+```javascript
+// This will be automatically replaced during import/deploy
+return {
+  var1: 'placeholder',
+  apiUrl: 'placeholder'
+};
+```
+
+After import/deploy to dev, it becomes:
+```javascript
+return {
+  "var1": "dev value",
+  "apiUrl": "https://dev-api.example.com"
+};
+```
+
+After deploy to prod, it becomes:
+```javascript
+return {
+  "var1": "prod value",
+  "apiUrl": "https://api.example.com"
+};
+```
+
+#### Benefits
+
+- Keep environment-specific configuration in version control
+- No need to manually update variables when deploying
+- Consistent variable management across environments
+- Secure handling of environment-specific values
+
 ### Custom Validation Rules
 
 Create `scripts/custom-validation.js`:
@@ -769,14 +854,14 @@ Create `scripts/custom-validation.js`:
 // Add your custom validation logic
 const customValidation = (workflow) => {
   const errors = [];
-  
+
   // Example: Check for required tags in production
   if (workflow.name.endsWith('-prod')) {
     if (!workflow.tags || workflow.tags.length === 0) {
       errors.push('Production workflows must have tags');
     }
   }
-  
+
   // Example: Check for test nodes in production
   if (workflow.name.endsWith('-prod')) {
     const testNodes = workflow.nodes.filter(n => 
@@ -786,7 +871,7 @@ const customValidation = (workflow) => {
       errors.push('Production workflows should not contain test nodes');
     }
   }
-  
+
   return errors;
 };
 ```

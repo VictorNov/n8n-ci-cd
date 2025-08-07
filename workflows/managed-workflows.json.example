@@ -37,7 +37,8 @@
     "devSuffix": "-dev",
     "prodSuffix": "-prod",
     "stagingSuffix": "-staging",
-    "backupBeforeSync": true,
+    "backupBeforeDeploy": true,
+    "backupBeforeImport": true,
     "validateBeforeImport": true
   }
 }

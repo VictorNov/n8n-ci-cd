@@ -1,7 +1,7 @@
 {
-  "backupName": "daily_auto_20250806_024720",
+  "backupName": "pre_deploy_auto_2025-08-07_123906",
   "environment": "prod",
-  "createdAt": "2025-08-06T02:47:21.748Z",
+  "createdAt": "2025-08-07T10:39:06.401Z",
   "workflowCount": 1,
   "failedCount": 0,
   "workflows": [

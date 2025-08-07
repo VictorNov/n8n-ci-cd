@@ -5,8 +5,9 @@
   "scripts": {
     "workflows:export:dev": "node scripts/manage-workflows.js export dev",
     "workflows:export:prod": "node scripts/manage-workflows.js export prod",
-    "workflows:sync": "node scripts/manage-workflows.js sync",
-    "workflows:sync:specific": "node scripts/manage-workflows.js sync",
+    "workflows:import:dev": "node scripts/manage-workflows.js import dev",
+    "workflows:deploy": "node scripts/manage-workflows.js deploy",
+    "workflows:deploy:specific": "node scripts/manage-workflows.js deploy",
     "workflows:list": "node scripts/manage-workflows.js list",
     "workflows:list:dev": "node scripts/manage-workflows.js list dev",
     "workflows:list:prod": "node scripts/manage-workflows.js list prod",
@@ -24,7 +25,7 @@
     "backup:compare:latest": "node scripts/compare-backups.js $(ls -1t workflows/backups/ | head -n2 | tail -n1) $(ls -1t workflows/backups/ | head -n1)",
 
     "dev:export": "npm run workflows:export:dev",
-    "prod:sync": "npm run workflows:sync",
+    "prod:deploy": "npm run workflows:deploy",
     "prod:backup": "npm run backup:create:prod",
     "emergency:restore": "npm run backup:restore",
 

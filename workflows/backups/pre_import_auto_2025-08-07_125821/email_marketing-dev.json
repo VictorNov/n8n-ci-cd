@@ -1,5 +1,5 @@
 {
-  "name": "Email Marketing-prod",
+  "name": "Email Marketing-dev",
   "active": false,
   "isArchived": false,
   "nodes": [
@@ -8,11 +8,11 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -420,
+        -720,
         -80
       ],
       "id": "97a38be5-426a-4a15-b315-aae2165565db",
-      "name": "When clicking ‘Test workflow’"
+      "name": "When clicking ‘Test workflow’ Testing..."
     },
     {
       "parameters": {
@@ -21,11 +21,71 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -200,
+        -100,
         -80
       ],
       "id": "06562ad8-db9c-4f73-9252-ad4d7df4e46e",
       "name": "Code"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "workflow",
+        "owner": {
+          "__rl": true,
+          "value": "VictorNov",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "n8n-ci-cd",
+          "mode": "list",
+          "cachedResultName": "n8n-ci-cd",
+          "cachedResultUrl": "https://github.com/VictorNov/n8n-ci-cd"
+        },
+        "workflowId": {
+          "__rl": true,
+          "value": 179288501,
+          "mode": "list",
+          "cachedResultName": "Sync Workflows to Production"
+        },
+        "ref": {
+          "__rl": true,
+          "value": "main",
+          "mode": "list",
+          "cachedResultName": "main"
+        },
+        "inputs": "={\n  \"workflows\": \"{{ $json.chatInput }}\"\n}"
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        -320,
+        -80
+      ],
+      "id": "4a92bfdb-1b67-4379-9a46-cca66fec586c",
+      "name": "GitHub",
+      "webhookId": "206a5253-7d51-4fe7-b028-126c64491365",
+      "alwaysOutputData": false,
+      "credentials": {
+        "githubOAuth2Api": {
+          "id": "OxFRtTpB8aJPdNJg",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        120,
+        -80
+      ],
+      "id": "1658cc66-3df0-4caa-a6bd-2c79a068535a",
+      "name": "AI Agent"
     },
     {
       "parameters": {
@@ -38,7 +98,7 @@
           },
           "conditions": [
             {
-              "id": "9ea1f08b-67a8-4fd9-b902-e6c1de452dc9",
+              "id": "21474f54-630b-4c4f-a7bc-8a7418d024ff",
               "leftValue": "",
               "rightValue": "",
               "operator": {
@@ -55,74 +115,34 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        20,
+        -500,
         -80
       ],
-      "id": "2678c3b0-68e2-4d81-b415-a162e066f74d",
-      "name": "If"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 1.9,
-      "position": [
-        240,
-        -180
-      ],
-      "id": "33d26963-2fd7-4977-8161-e6de7134dd30",
-      "name": "AI Agent"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 1.9,
-      "position": [
-        240,
-        20
-      ],
-      "id": "a5365a41-9129-4ddb-ac0e-d4fc53039eb6",
-      "name": "AI Agent1"
+      "id": "8546da6e-d973-4a67-9b1b-34170f8933d9",
+      "name": "Variables"
     }
   ],
   "connections": {
     "When clicking ‘Test workflow’": {
       "main": [
-        [
-          {
-            "node": "Code",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "If": {
-      "main": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "AI Agent1",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Code": {
       "main": [
+        []
+      ]
+    },
+    "GitHub": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking ‘Test workflow’ Testing...": {
+      "main": [
         [
           {
-            "node": "If",
+            "node": "Variables",
             "type": "main",
             "index": 0
           }
@@ -139,10 +159,10 @@
   "triggerCount": 0,
   "shared": [
     {
-      "createdAt": "2025-08-05T13:30:27.443Z",
-      "updatedAt": "2025-08-05T13:30:27.443Z",
+      "createdAt": "2025-08-05T13:30:12.463Z",
+      "updatedAt": "2025-08-05T13:30:12.463Z",
       "role": "workflow:owner",
-      "workflowId": "tIKyU3P5Ifjz06Ni",
+      "workflowId": "I3fEanqNEJi07MoC",
       "projectId": "ld5JedyMx1F9QqRn",
       "project": {
         "createdAt": "2025-06-16T12:58:27.239Z",
@@ -160,7 +180,7 @@
             "projectId": "ld5JedyMx1F9QqRn",
             "user": {
               "createdAt": "2025-06-16T12:58:27.237Z",
-              "updatedAt": "2025-07-30T17:04:56.109Z",
+              "updatedAt": "2025-08-06T14:03:29.341Z",
               "id": "c9aae829-0c97-4718-b4f7-67709983d4b0",
               "email": "between.photo@gmail.com",
               "firstName": "Victor",
@@ -168,7 +188,10 @@
               "personalizationAnswers": null,
               "settings": {
                 "easyAIWorkflowOnboarded": true,
-                "userClaimedAiCredits": true
+                "userClaimedAiCredits": true,
+                "firstSuccessfulWorkflowId": "tIKyU3P5Ifjz06Ni",
+                "userActivated": true,
+                "userActivatedAt": 1754489007792
               },
               "role": "global:member",
               "disabled": false,

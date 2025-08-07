@@ -28,31 +28,35 @@ class InteractiveWorkflowSelector {
     async showMainMenu() {
         console.log('\nWhat would you like to do?');
         console.log('1. Export development workflows');
-        console.log('2. Sync workflows to production');
-        console.log('3. View workflow status');
-        console.log('4. List managed workflows');
-        console.log('5. Backup operations');
-        console.log('6. Exit');
+        console.log('2. Import local workflows to dev');
+        console.log('3. Deploy workflows to production');
+        console.log('4. View workflow status');
+        console.log('5. List managed workflows');
+        console.log('6. Backup operations');
+        console.log('7. Exit');
 
-        const choice = await this.askQuestion('\nEnter your choice (1-6): ');
+        const choice = await this.askQuestion('\nEnter your choice (1-7): ');
 
         switch (choice.trim()) {
             case '1':
                 await this.handleExportWorkflows();
                 break;
             case '2':
-                await this.handleSyncWorkflows();
+                await this.handleImportWorkflows();
                 break;
             case '3':
-                await this.handleViewStatus();
+                await this.handleDeployWorkflows();
                 break;
             case '4':
-                await this.handleListWorkflows();
+                await this.handleViewStatus();
                 break;
             case '5':
-                await this.handleBackupOperations();
+                await this.handleListWorkflows();
                 break;
             case '6':
+                await this.handleBackupOperations();
+                break;
+            case '7':
                 console.log('👋 Goodbye!');
                 return;
             default:
@@ -85,21 +89,21 @@ class InteractiveWorkflowSelector {
         await this.showMainMenu();
     }
 
-    async handleSyncWorkflows() {
-        console.log('\n🔄 Sync Workflows to Production');
+    async handleImportWorkflows() {
+        console.log('\n📥 Import Local Workflows to Dev');
         console.log('===============================');
 
-        console.log('⚠️  This will sync development workflows to production.');
-        console.log('⚠️  Production workflows will be created/updated but remain INACTIVE.');
+        console.log('⚠️  This will push local workflow files to n8n dev environment.');
+        console.log('⚠️  Existing workflows will be updated, new ones will be created.');
 
         const confirm = await this.askQuestion('\nDo you want to continue? (y/N): ');
         if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
-            console.log('ℹ️ Sync cancelled.');
+            console.log('ℹ️ Import cancelled.');
             await this.showMainMenu();
             return;
         }
 
-        const workflows = await this.selectWorkflows('sync');
+        const workflows = await this.selectWorkflows('import');
 
         if (workflows.length === 0) {
             console.log('ℹ️ No workflows selected.');
@@ -107,11 +111,58 @@ class InteractiveWorkflowSelector {
             return;
         }
 
-        console.log(`\n🔄 Syncing ${workflows.length} workflow(s) to production...`);
+        console.log(`\n🔄 Importing ${workflows.length} workflow(s) to dev environment...`);
 
         try {
-            const results = await this.manager.syncDevToProd(workflows);
-            console.log('✅ Sync completed successfully!');
+            const results = await this.manager.importLocalWorkflows('dev', workflows);
+            console.log('✅ Import completed successfully!');
+
+            const successful = results.filter(r => r.status === 'success').length;
+            const failed = results.filter(r => r.status === 'failed').length;
+
+            console.log(`\n📊 Import summary: ${successful} successful, ${failed} failed`);
+
+            if (successful > 0) {
+                console.log('\n⚠️  Next Steps:');
+                console.log('   1. Go to your n8n Cloud instance');
+                console.log('   2. Review the imported workflows');
+                console.log('   3. Manually activate workflows as needed');
+            }
+
+        } catch (error) {
+            console.error('❌ Import failed:', error.message);
+        }
+
+        await this.showMainMenu();
+    }
+
+    async handleDeployWorkflows() {
+        console.log('\n🔄 Deploy Workflows to Production');
+        console.log('===============================');
+
+        console.log('⚠️  This will deploy development workflows to production.');
+        console.log('⚠️  Production workflows will be created/updated but remain INACTIVE.');
+
+        const confirm = await this.askQuestion('\nDo you want to continue? (y/N): ');
+        if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
+            console.log('ℹ️ Deployment cancelled.');
+            await this.showMainMenu();
+            return;
+        }
+
+        const workflows = await this.selectWorkflows('deploy');
+
+        if (workflows.length === 0) {
+            console.log('ℹ️ No workflows selected.');
+            await this.showMainMenu();
+            return;
+        }
+
+        console.log(`\n🔄 Deploying ${workflows.length} workflow(s) to production...`);
+
+        try {
+            const results = await this.manager.deployDevToProd(workflows);
+            console.log('✅ Deployment completed successfully!');
 
             results.forEach(result => {
                 if (result.status === 'success') {
@@ -122,7 +173,7 @@ class InteractiveWorkflowSelector {
             });
 
         } catch (error) {
-            console.error('❌ Sync failed:', error.message);
+            console.error('❌ Deployment failed:', error.message);
         }
 
         await this.showMainMenu();

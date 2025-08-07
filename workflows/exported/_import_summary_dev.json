@@ -1,12 +1,12 @@
 {
-  "restoredAt": "2025-08-05T16:18:03.025Z",
-  "backupName": "daily_auto_20250805_161259",
+  "importedAt": "2025-08-07T10:58:22.261Z",
+  "environment": "dev",
   "totalWorkflows": 1,
   "successful": 1,
   "failed": 0,
   "results": [
     {
-      "workflowName": "Email Marketing-prod",
+      "workflowName": "Email Marketing-dev",
       "action": "updated",
       "status": "success",
       "previouslyActive": false
