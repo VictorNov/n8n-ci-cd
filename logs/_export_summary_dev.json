@@ -1,9 +1,11 @@
 {
-  "timestamp": "2025-08-14T16:12:35.772Z",
+  "timestamp": "2025-08-14T16:20:11.043Z",
   "environment": "dev",
   "success": true,
-  "exportType": "all",
-  "requestedWorkflows": [],
+  "exportType": "selective",
+  "requestedWorkflows": [
+    "Email Marketing"
+  ],
   "totalWorkflows": 1,
   "successful": 1,
   "failed": 0,
@@ -14,7 +16,7 @@
       "fileName": "email_marketing.json",
       "status": "success",
       "active": false,
-      "nodeCount": 13
+      "nodeCount": 12
     }
   ],
   "failedWorkflows": [],
@@ -23,7 +25,7 @@
       "name": "Email Marketing-dev",
       "baseName": "Email Marketing",
       "fileName": "email_marketing.json",
-      "nodeCount": 13
+      "nodeCount": 12
     }
   ]
 }
