@@ -1,11 +1,9 @@
 {
-  "timestamp": "2025-08-14T16:20:11.043Z",
+  "timestamp": "2025-08-14T16:28:26.246Z",
   "environment": "dev",
   "success": true,
-  "exportType": "selective",
-  "requestedWorkflows": [
-    "Email Marketing"
-  ],
+  "exportType": "all",
+  "requestedWorkflows": [],
   "totalWorkflows": 1,
   "successful": 1,
   "failed": 0,
