@@ -36,16 +36,13 @@ jobs:
       - name: Export development workflows
         run: |
           if [[ -n "${{ github.event.inputs.workflows }}" ]]; then
-            # Export specific workflows
-            IFS=',' read -ra WORKFLOWS <<< "${{ github.event.inputs.workflows }}"
-            for workflow in "${WORKFLOWS[@]}"; do
-              workflow=$(echo "$workflow" | xargs) # trim whitespace
-              echo "Exporting workflow: $workflow"
-              node scripts/manage-workflows.js export dev "$workflow"
-            done
+            # Export specific workflows using the new export manager
+            echo "🎯 Exporting specific workflows: ${{ github.event.inputs.workflows }}"
+            node scripts/export-manager.js export-specific dev "${{ github.event.inputs.workflows }}"
           else
             # Export all managed dev workflows
-            node scripts/manage-workflows.js export dev
+            echo "📤 Exporting all managed dev workflows"
+            node scripts/export-manager.js export dev
           fi
 
       - name: Commit exported workflows
@@ -54,30 +51,63 @@ jobs:
           git config --local user.name "GitHub Action"
 
           if [[ -n "$(git status --porcelain)" ]]; then
-            git add workflows/
-            git commit -m "chore: export dev workflows $(date -u +%Y-%m-%d)"
+            git add workflows/ logs/
+            git commit -m "chore: export dev workflows $(date -u +%Y-%m-%d) - ${{ github.event.inputs.workflows || 'all workflows' }}"
             git push
+            echo "✅ Changes committed and pushed"
           else
-            echo "No changes to commit"
+            echo "ℹ️ No changes to commit"
           fi
 
-      - name: Create export summary
+      - name: Create enhanced export summary
         run: |
-          echo "## Development Workflow Export Summary" > export-summary.md
-          echo "" >> export-summary.md
-          echo "**Triggered by:** ${{ github.actor }}" >> export-summary.md
-          echo "**Date:** $(date -u)" >> export-summary.md
-          echo "**Specific workflows:** ${{ github.event.inputs.workflows || 'All managed workflows' }}" >> export-summary.md
-          echo "" >> export-summary.md
+          echo "📊 Creating enhanced export summary"
+          
+          # The export-summary.md should already be created by the export manager
+          if [[ -f "export-summary.md" ]]; then
+            echo "✅ Export summary already created by export manager"
+          else
+            echo "⚠️ Creating fallback export summary"
+            echo "## Development Workflow Export Summary" > export-summary.md
+            echo "" >> export-summary.md
+            echo "**Triggered by:** ${{ github.actor }}" >> export-summary.md
+            echo "**Date:** $(date -u)" >> export-summary.md
+            echo "**Specific workflows:** ${{ github.event.inputs.workflows || 'All managed workflows' }}" >> export-summary.md
+            echo "" >> export-summary.md
+            echo "**Status:** Export completed" >> export-summary.md
+          fi
 
-          if [[ -f "logs/_export_summary_dev.json" ]]; then
-            echo "**Results:**" >> export-summary.md
+      - name: Display export results
+        run: |
+          echo "📋 Export Results:"
+          echo "=================="
+          
+          if [[ -f "export-summary.json" ]]; then
+            echo "📊 Summary from export-summary.json:"
             node -e "
-              const summary = JSON.parse(require('fs').readFileSync('logs/_export_summary_dev.json', 'utf8'));
-              console.log('- Total workflows: ' + summary.totalWorkflows);
-              console.log('- Successful: ' + summary.successful);
-              console.log('- Failed: ' + summary.failed);
-            " >> export-summary.md
+              const summary = JSON.parse(require('fs').readFileSync('export-summary.json', 'utf8'));
+              console.log('✅ Export Status:', summary.success ? 'Success' : 'Failed');
+              console.log('📊 Total workflows:', summary.totalWorkflows);
+              console.log('✅ Successful:', summary.successful);
+              console.log('❌ Failed:', summary.failed);
+              console.log('📝 Export type:', summary.exportType);
+          
+              if (summary.successfulWorkflows.length > 0) {
+                console.log('\\n📤 Successfully exported:');
+                summary.successfulWorkflows.forEach(w => {
+                  console.log('  -', w.baseName, '(' + w.nodeCount + ' nodes)');
+                });
+              }
+          
+              if (summary.failedWorkflows.length > 0) {
+                console.log('\\n❌ Failed exports:');
+                summary.failedWorkflows.forEach(w => {
+                  console.log('  -', w.name, ':', w.error);
+                });
+              }
+            "
+          else
+            echo "⚠️ No detailed summary available"
           fi
 
       - name: Upload export artifacts
@@ -85,5 +115,50 @@ jobs:
         with:
           name: dev-workflows-export-${{ github.run_number }}
           path: |
-            workflows/exported/
+            workflows/
+            logs/
             export-summary.md
+            export-summary.json
+          retention-days: 30
+
+      - name: Create success notification
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let summaryContent = 'Export completed successfully.';
+            
+            if (fs.existsSync('export-summary.md')) {
+              summaryContent = fs.readFileSync('export-summary.md', 'utf8');
+            }
+            
+            // Only create issue if there were actual changes
+            const { execSync } = require('child_process');
+            try {
+              const hasChanges = execSync('git log -1 --name-only', { encoding: 'utf8' });
+              if (hasChanges.includes('workflows/')) {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `📤 Development Workflows Exported: ${{ github.event.inputs.workflows || 'All workflows' }}`,
+                  body: `## Development Workflow Export Notification
+  
+                  **Triggered by:** ${{ github.actor }}
+                  **Workflows:** ${{ github.event.inputs.workflows || 'All managed workflows' }}
+                  **Date:** ${new Date().toUTCString()}
+                  
+                  ${summaryContent}
+                
+                ### Next Steps
+                - [ ] Review exported workflow files
+                - [ ] Create release candidate when ready
+                - [ ] Test workflows before production deployment
+                - [ ] Close this issue when review complete`,
+                    labels: ['export', 'development']
+                });
+                    }
+                    } catch (error) {
+                    console.log('No changes detected or unable to check git log');
+                    }

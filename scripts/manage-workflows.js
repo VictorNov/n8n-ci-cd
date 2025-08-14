@@ -970,6 +970,27 @@ class WorkflowManager {
         fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
         console.log(`📊 Import summary saved: ${summaryPath}`);
     }
+
+    createExportSummary(results, environment) {
+        const summary = {
+            timestamp: new Date().toISOString(),
+            environment: environment,
+            totalWorkflows: results.length,
+            successful: results.filter(r => r.status === 'success').length,
+            failed: results.filter(r => r.status === 'failed').length,
+            workflows: results
+        };
+
+        // Ensure the directory exists
+        const logsDir = path.join('logs');
+        if (!fs.existsSync(logsDir)) {
+            fs.mkdirSync(logsDir, { recursive: true });
+        }
+
+        const summaryPath = path.join(logsDir, `_export_summary_${environment}.json`);
+        fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+        console.log(`📊 Export summary saved: ${summaryPath}`);
+    }
 }
 
 // CLI usage
