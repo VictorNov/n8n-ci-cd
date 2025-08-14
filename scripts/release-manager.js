@@ -77,10 +77,37 @@ class ReleaseManager {
         this.ensureGitConfig();
 
         try {
+            // Store current branch
+            const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+
+            // Stash any uncommitted changes to avoid conflicts
+            try {
+                const status = execSync('git status --porcelain', { encoding: 'utf8' }).trim();
+                if (status) {
+                    console.log('📦 Stashing uncommitted changes');
+                    execSync('git stash push -m "Auto-stash before prod branch operations"');
+                }
+            } catch (error) {
+                console.warn('⚠️ Could not stash changes, continuing...');
+            }
+
+            // Fetch latest from remote to ensure we have up-to-date refs
+            execSync('git fetch origin', { stdio: 'ignore' });
+
             // Check if prod branch exists locally
             try {
                 execSync('git show-ref --verify --quiet refs/heads/prod', { stdio: 'ignore' });
                 console.log('✅ prod branch exists locally');
+
+                // Make sure local prod is up to date with remote
+                try {
+                    execSync('git checkout prod', { stdio: 'ignore' });
+                    execSync('git pull origin prod', { stdio: 'ignore' });
+                    console.log('✅ Updated local prod branch');
+                } catch (error) {
+                    console.warn('⚠️ Could not update local prod branch');
+                }
+
                 return 'exists-local';
             } catch (error) {
                 // Branch doesn't exist locally, check remote
@@ -90,7 +117,7 @@ class ReleaseManager {
             try {
                 execSync('git show-ref --verify --quiet refs/remotes/origin/prod', { stdio: 'ignore' });
                 console.log('✅ prod branch exists remotely, checking out');
-                execSync('git checkout -b prod origin/prod');
+                execSync('git checkout -b prod origin/prod', { stdio: 'ignore' });
                 return 'exists-remote';
             } catch (error) {
                 // Branch doesn't exist remotely either
@@ -98,16 +125,29 @@ class ReleaseManager {
 
             // Create new prod branch
             console.log('📝 Creating new prod branch from main');
-            execSync('git checkout -b prod');
-            execSync('git push -u origin prod');
+            execSync(`git checkout ${currentBranch}`, { stdio: 'ignore' });
+            execSync('git checkout -b prod', { stdio: 'ignore' });
+            execSync('git push -u origin prod', { stdio: 'ignore' });
             return 'created';
+
         } catch (error) {
             console.error(`❌ Failed to ensure prod branch: ${error.message}`);
             throw error;
         } finally {
-            // Always switch back to main
+            // Always switch back to main and restore stashed changes
             try {
-                execSync('git checkout main');
+                execSync('git checkout main', { stdio: 'ignore' });
+
+                // Restore stashed changes if any
+                try {
+                    const stashList = execSync('git stash list', { encoding: 'utf8' }).trim();
+                    if (stashList.includes('Auto-stash before prod branch operations')) {
+                        execSync('git stash pop', { stdio: 'ignore' });
+                        console.log('📦 Restored stashed changes');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Could not restore stashed changes');
+                }
             } catch (error) {
                 console.warn('⚠️ Failed to switch back to main branch');
             }
@@ -406,7 +446,7 @@ class ReleaseManager {
         try {
             execSync(`git checkout -b "${branchName}"`);
 
-            // Create release metadata
+            // Create release metadata with unique filename
             const releaseInfo = {
                 workflow: workflowName,
                 version: version,
@@ -415,9 +455,11 @@ class ReleaseManager {
                 branch: branchName
             };
 
-            fs.writeFileSync('RELEASE_INFO.md', this.generateReleaseInfo(releaseInfo));
+            // Use unique filename to avoid conflicts
+            const releaseInfoFile = `RELEASE_INFO_${sanitizedName}_${version.replace(/\./g, '_')}.md`;
+            fs.writeFileSync(releaseInfoFile, this.generateReleaseInfo(releaseInfo));
 
-            execSync('git add RELEASE_INFO.md');
+            execSync(`git add ${releaseInfoFile}`);
             execSync(`git commit -m "chore: create release candidate ${version} for ${workflowName}"`);
             execSync(`git push -u origin "${branchName}"`);
 

@@ -88,6 +88,20 @@ jobs:
           rc_branch=$(node scripts/release-manager.js create-branch "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}")
           echo "RC_BRANCH=$rc_branch" >> $GITHUB_ENV
 
+      - name: Prepare PR body
+        id: pr_body
+        run: |
+          echo "📝 Preparing PR body with workflow changes"
+          
+          # Read workflow changes if file exists
+          if [ -f "workflow_changes.md" ]; then
+            echo "WORKFLOW_CHANGES<<EOF" >> $GITHUB_OUTPUT
+            cat workflow_changes.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "WORKFLOW_CHANGES=No workflow changes file found." >> $GITHUB_OUTPUT
+          fi
+
       - name: Create pull request to prod
         uses: repo-sync/pull-request@v2
         with:
@@ -109,7 +123,7 @@ jobs:
             
             ### 📊 Workflow Changes
             
-            $(cat workflow_changes.md)
+            ${{ steps.pr_body.outputs.WORKFLOW_CHANGES }}
             
             ### 🚨 Important Notes
             - Merging this PR will trigger automatic production deployment
@@ -142,5 +156,5 @@ jobs:
           name: release-candidate-${{ github.event.inputs.workflow_name }}-${{ github.event.inputs.version }}
           path: |
             workflow_changes.md
-            RELEASE_INFO.md
+            RELEASE_INFO_*.md
             workflows/${{ steps.analyze.outputs.workflow_file }}
