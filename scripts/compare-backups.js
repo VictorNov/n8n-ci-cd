@@ -14,8 +14,8 @@ class BackupComparator {
         console.log(`   📦 ${backup2Name}`);
         console.log('');
 
-        const backup1Path = path.join('workflows', 'backups', backup1Name);
-        const backup2Path = path.join('workflows', 'backups', backup2Name);
+        const backup1Path = path.join('backups', backup1Name);
+        const backup2Path = path.join('backups', backup2Name);
 
         // Verify both backups exist
         if (!fs.existsSync(backup1Path)) {
@@ -292,7 +292,7 @@ if (require.main === module) {
         console.log('');
         console.log('Available backups:');
 
-        const backupsDir = path.join('workflows', 'backups');
+        const backupsDir = path.join('backups');
         if (fs.existsSync(backupsDir)) {
             const backups = fs.readdirSync(backupsDir)
                 .filter(item => fs.statSync(path.join(backupsDir, item)).isDirectory())

@@ -1,6 +1,6 @@
 {
   "n8n": {
-    "baseUrl": "https://your_n8n_base_url"
+    "baseUrl": "https://kezlya.app.n8n.cloud"
   },
   "deployment": {
     "requireApprovalForProd": true,

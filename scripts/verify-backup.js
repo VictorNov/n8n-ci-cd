@@ -12,7 +12,7 @@ class BackupVerifier {
     verifyBackup(backupName) {
         console.log(`🔍 Verifying backup: ${backupName}`);
 
-        const backupPath = path.join('workflows', 'backups', backupName);
+        const backupPath = path.join('backups', backupName);
 
         if (!fs.existsSync(backupPath)) {
             this.errors.push(`Backup directory not found: ${backupPath}`);
@@ -213,7 +213,7 @@ class BackupVerifier {
     }
 
     verifyAllBackups() {
-        const backupsDir = path.join('workflows', 'backups');
+        const backupsDir = path.join('backups');
 
         if (!fs.existsSync(backupsDir)) {
             console.log('📁 No backups directory found');
@@ -329,7 +329,7 @@ if (require.main === module) {
         console.log('');
         console.log('Available backups:');
 
-        const backupsDir = path.join('workflows', 'backups');
+        const backupsDir = path.join('backups');
         if (fs.existsSync(backupsDir)) {
             const backups = fs.readdirSync(backupsDir)
                 .filter(item => fs.statSync(path.join(backupsDir, item)).isDirectory())

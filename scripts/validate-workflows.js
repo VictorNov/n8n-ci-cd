@@ -78,9 +78,8 @@ class SuffixAwareValidator {
         if (!workflow.name) return;
 
         const validSuffixes = [
-            this.managedWorkflows.settings.devSuffix,
-            this.managedWorkflows.settings.prodSuffix,
-            this.managedWorkflows.settings.stagingSuffix
+            '-dev',
+            '-prod',
         ].filter(Boolean);
 
         const hasValidSuffix = validSuffixes.some(suffix =>
@@ -211,9 +210,8 @@ class SuffixAwareValidator {
 
     getBaseName(workflowName) {
         const suffixes = [
-            this.managedWorkflows.settings.devSuffix,
-            this.managedWorkflows.settings.prodSuffix,
-            this.managedWorkflows.settings.stagingSuffix
+            '-dev',
+            '-prod',
         ].filter(Boolean);
 
         for (const suffix of suffixes) {
@@ -225,9 +223,8 @@ class SuffixAwareValidator {
     }
 
     getEnvironment(workflowName) {
-        if (workflowName.endsWith(this.managedWorkflows.settings.devSuffix)) return 'dev';
-        if (workflowName.endsWith(this.managedWorkflows.settings.prodSuffix)) return 'prod';
-        if (workflowName.endsWith(this.managedWorkflows.settings.stagingSuffix)) return 'staging';
+        if (workflowName.endsWith('-dev')) return 'dev';
+        if (workflowName.endsWith('-prod')) return 'prod';
         return 'unknown';
     }
 

@@ -61,27 +61,27 @@ class WorkflowManager {
 
     getSuffix(environment) {
         const suffixes = {
-            'dev': this.managedWorkflows.settings.devSuffix,
-            'prod': this.managedWorkflows.settings.prodSuffix,
-            'staging': this.managedWorkflows.settings.stagingSuffix
+            'dev': '-dev',
+            'prod': '-prod',
         };
         return suffixes[environment] || '';
     }
 
     getBaseNameFromWorkflowName(workflowName) {
-        for (const suffix of Object.values(this.managedWorkflows.settings)) {
-            if (suffix && workflowName.endsWith(suffix)) {
-                return workflowName.substring(0, workflowName.length - suffix.length);
-            }
+        // Check if the workflow name has a suffix and remove it
+        if (workflowName.endsWith('-dev')) {
+            return workflowName.substring(0, workflowName.length - 4);
+        }
+        if (workflowName.endsWith('-prod')) {
+            return workflowName.substring(0, workflowName.length - 5);
         }
         return workflowName;
     }
 
     getEnvironmentFromWorkflowName(workflowName) {
-        if (workflowName.endsWith(this.managedWorkflows.settings.devSuffix)) return 'dev';
-        if (workflowName.endsWith(this.managedWorkflows.settings.prodSuffix)) return 'prod';
-        if (workflowName.endsWith(this.managedWorkflows.settings.stagingSuffix)) return 'staging';
-        return 'unknown';
+        if (workflowName.endsWith('-dev')) return 'dev';
+        if (workflowName.endsWith('-prod')) return 'prod';
+        return 'dev'; // Default to dev if no suffix is found
     }
 
     async exportManagedWorkflows(environment, specificWorkflows = null) {
@@ -100,7 +100,7 @@ class WorkflowManager {
         console.log(`📋 Found ${workflowsToExport.length} workflows to export`);
 
         const exportResults = [];
-        const exportDir = path.join('workflows', 'exported');
+        const exportDir = path.join('workflows');
         fs.mkdirSync(exportDir, { recursive: true });
 
         for (const workflow of workflowsToExport) {
@@ -127,11 +127,15 @@ class WorkflowManager {
         const allWorkflows = await this.getAllWorkflows();
         const suffix = this.getSuffix(environment);
 
-        const specificNames = workflowBaseNames.map(baseName => baseName + suffix);
+        // For each base name, we need to find the workflow with the correct environment suffix
+        return allWorkflows.filter(workflow => {
+            // Check if this workflow's base name (without suffix) is in the requested list
+            const baseName = this.getBaseNameFromWorkflowName(workflow.name);
+            const workflowEnv = this.getEnvironmentFromWorkflowName(workflow.name);
 
-        return allWorkflows.filter(workflow =>
-            specificNames.includes(workflow.name)
-        );
+            // Only include workflows that match both the base name and the environment
+            return workflowBaseNames.includes(baseName) && workflowEnv === environment;
+        });
     }
 
     async exportSingleWorkflow(workflow, exportDir) {
@@ -165,7 +169,11 @@ class WorkflowManager {
     }
 
     generateFileName(workflowName) {
-        return workflowName
+        // First, get the base name without any environment suffix
+        const baseName = this.getBaseNameFromWorkflowName(workflowName);
+
+        // Then convert to filename format
+        return baseName
             .replace(/[^a-zA-Z0-9\s-]/g, '')
             .replace(/\s+/g, '_')
             .toLowerCase() + '.json';
@@ -209,6 +217,7 @@ class WorkflowManager {
 
     async deploySingleWorkflow(devWorkflow) {
         const baseName = this.getBaseNameFromWorkflowName(devWorkflow.name);
+        // Add the prod suffix to the base name
         const prodWorkflowName = baseName + this.getSuffix('prod');
 
         console.log(`🔄 Deploying: ${devWorkflow.name} → ${prodWorkflowName}`);
@@ -280,7 +289,7 @@ class WorkflowManager {
             workflows: results
         };
 
-        const summaryPath = path.join('workflows', 'exported', `_export_summary_${environment}.json`);
+        const summaryPath = path.join('workflows', `_export_summary_${environment}.json`);
         fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
         console.log(`📊 Export summary saved: ${summaryPath}`);
     }
@@ -602,7 +611,7 @@ class WorkflowManager {
         // Generate backup name
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
         const backupName = customName || `backup_${environment}_${timestamp.replace(/[-T]/g, '_')}`;
-        const backupDir = path.join('workflows', 'backups', backupName);
+        const backupDir = path.join('backups', backupName);
 
         // Create backup directory
         fs.mkdirSync(backupDir, { recursive: true });
@@ -657,7 +666,7 @@ class WorkflowManager {
     }
 
     async cleanupOldBackups(keepCount = 10) {
-        const backupsDir = path.join('workflows', 'backups');
+        const backupsDir = path.join('backups');
 
         if (!fs.existsSync(backupsDir)) {
             console.log('📁 No backups directory found');
@@ -705,7 +714,7 @@ class WorkflowManager {
             await this.createBackup(environment, `pre_import_auto_${new Date().toISOString().replace(/[:.]/g, '').split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '')}`);
         }
 
-        const exportDir = path.join('workflows', 'exported');
+        const exportDir = path.join('workflows');
         if (!fs.existsSync(exportDir)) {
             throw new Error(`Export directory not found: ${exportDir}`);
         }
@@ -951,7 +960,7 @@ class WorkflowManager {
             }))
         };
 
-        const summaryPath = path.join('workflows', 'exported', `_import_summary_${environment}.json`);
+        const summaryPath = path.join('workflows', `_import_summary_${environment}.json`);
         fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
         console.log(`📊 Import summary saved: ${summaryPath}`);
     }

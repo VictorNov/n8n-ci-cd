@@ -176,8 +176,6 @@ Edit `workflows/managed-workflows.json`:
     }
   ],
   "settings": {
-    "devSuffix": "-dev",
-    "prodSuffix": "-prod",
     "backupBeforeDeploy": true,
     "validateBeforeImport": true
   }
@@ -242,9 +240,6 @@ Configure global settings in `managed-workflows.json`:
 ```json
 {
   "settings": {
-    "devSuffix": "-dev",                 // Development suffix
-    "prodSuffix": "-prod",               // Production suffix
-    "stagingSuffix": "-staging",         // Optional staging suffix
     "backupBeforeDeploy": true,            // Auto-backup before production deployment
     "validateBeforeImport": true,        // Validate workflows before import
     "requireManualActivation": true,     // Keep workflows inactive after import

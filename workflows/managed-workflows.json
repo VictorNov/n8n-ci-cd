@@ -16,6 +16,7 @@
   "settings": {
     "backupBeforeDeploy": true,
     "backupBeforeImport": true,
-    "validateBeforeImport": true
+    "validateBeforeImport": true,
+    "maxBackupsToKeep": 10
   }
 }
