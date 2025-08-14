@@ -11,9 +11,7 @@ on:
       workflow_name:
         description: |
           Workflow base name for release. Available workflows:
-          • Customer Onboarding (current: v1.2.3, suggested: v1.2.4)
-          • Email Marketing (current: v2.1.0, suggested: v2.1.1)
-          • Data Sync (current: No releases, suggested: v1.0.0)
+          • No released workflows yet, type in a name of one listed in the managed-workflows.json file.
         required: true
       version:
         description: 'Release version (current: will be updated automatically, suggested: will be updated automatically)'
@@ -34,6 +32,11 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install dependencies
         run: npm install

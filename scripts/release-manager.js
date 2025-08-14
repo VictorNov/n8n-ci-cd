@@ -46,8 +46,35 @@ class ReleaseManager {
         }
     }
 
+    ensureGitConfig() {
+        try {
+            // Check if user name is configured
+            try {
+                execSync('git config user.name', { stdio: 'ignore' });
+            } catch (error) {
+                // Set default git user name
+                execSync('git config user.name "github-actions[bot]"');
+                console.log('🔧 Set git user.name to github-actions[bot]');
+            }
+
+            // Check if user email is configured
+            try {
+                execSync('git config user.email', { stdio: 'ignore' });
+            } catch (error) {
+                // Set default git user email
+                execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
+                console.log('🔧 Set git user.email to github-actions[bot]@users.noreply.github.com');
+            }
+        } catch (error) {
+            console.warn(`⚠️ Failed to configure git: ${error.message}`);
+        }
+    }
+
     ensureProdBranch() {
         console.log(`🌿 Ensuring prod branch exists`);
+
+        // Ensure Git is configured
+        this.ensureGitConfig();
 
         try {
             // Check if prod branch exists locally
@@ -345,6 +372,9 @@ class ReleaseManager {
     }
 
     createReleaseTag(workflowName, version) {
+        // Ensure Git is configured
+        this.ensureGitConfig();
+
         // Sanitize workflow name for Git tag (no spaces, special chars)
         const sanitizedName = this.sanitizeForGit(workflowName);
         const tagName = `${sanitizedName}-${version}`;
@@ -364,6 +394,9 @@ class ReleaseManager {
     }
 
     createReleaseBranch(workflowName, version) {
+        // Ensure Git is configured
+        this.ensureGitConfig();
+
         // Sanitize workflow name for Git branch (no spaces, special chars)
         const sanitizedName = this.sanitizeForGit(workflowName);
         const branchName = `release-candidate/${sanitizedName}-${version}`;
