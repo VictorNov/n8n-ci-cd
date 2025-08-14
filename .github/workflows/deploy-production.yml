@@ -33,19 +33,88 @@ jobs:
       - name: Detect workflows to deploy
         id: detect_workflows
         run: |
-          echo "🔍 Detecting workflows to deploy"
+          echo "🔍 Detecting workflows to deploy from PR title"
           
-          # Check if this is a valid push with changes
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
-            echo "Using commit range: ${{ github.event.before }}..${{ github.event.after }}"
-            workflows=$(node scripts/deployment-manager.js detect-workflows "${{ github.event.before }}" "${{ github.event.after }}")
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # Method 1: Try to get the actual PR that was merged
+            commit_sha="${{ github.sha }}"
+            echo "Looking for PR associated with commit: $commit_sha"
+          
+            # Use GitHub CLI to find the PR
+            pr_info=$(gh pr list --state merged --limit 50 --json number,title,mergeCommit | \
+                     jq -r ".[] | select(.mergeCommit.oid == \"$commit_sha\") | .title" 2>/dev/null || echo "")
+          
+            if [[ -n "$pr_info" ]]; then
+              echo "Found PR title: $pr_info"
+          
+              # Extract workflow name from PR title pattern: "🚀 Release X.X.X: Workflow Name"
+              if [[ "$pr_info" =~ 🚀\ Release\ [^:]+:\ (.+) ]]; then
+                workflow_name="${BASH_REMATCH[1]}"
+                echo "workflows=$workflow_name" >> $GITHUB_OUTPUT
+                echo "✅ Detected workflow from PR title: $workflow_name"
+                exit 0
+              fi
+            fi
+          
+            # Method 2: Try commit message
+            commit_message=$(git log -1 --pretty=format:"%s")
+            echo "Commit message: $commit_message"
+          
+            # Look for pattern like "🚀 Release X.X.X: Workflow Name"
+            if [[ "$commit_message" =~ 🚀\ Release\ [^:]+:\ (.+) ]]; then
+              workflow_name="${BASH_REMATCH[1]}"
+              echo "workflows=$workflow_name" >> $GITHUB_OUTPUT
+              echo "✅ Detected workflow from commit: $workflow_name"
+              exit 0
+            fi
+          
+            # Method 3: Look for merge commit pattern
+            if [[ "$commit_message" =~ Merge\ pull\ request.*🚀\ Release\ [^:]+:\ (.+) ]]; then
+              workflow_name="${BASH_REMATCH[1]}"
+              echo "workflows=$workflow_name" >> $GITHUB_OUTPUT
+              echo "✅ Detected workflow from PR merge: $workflow_name"
+              exit 0
+            fi
+          
+            echo "❌ Could not detect workflow from PR title or commit message"
+            echo "Expected patterns:"
+            echo "- PR title: '🚀 Release X.X.X: Workflow Name'"
+            echo "- Commit: '🚀 Release X.X.X: Workflow Name'"
+            echo "- Merge: 'Merge pull request ... 🚀 Release X.X.X: Workflow Name'"
+            echo ""
+            echo "🔄 Falling back to scanning all workflows"
+          
+            # Method 4: Fallback - scan for workflow files
+            workflow_files=$(find workflows -name "*.json" -type f ! -name "_*" 2>/dev/null | head -5)
+          
+            if [[ -z "$workflow_files" ]]; then
+              echo "❌ No workflow files found in workflows directory"
+              ls -la workflows/ 2>/dev/null || echo "workflows directory does not exist"
+              exit 1
+            fi
+          
+            workflows=""
+            for file in $workflow_files; do
+              filename=$(basename "$file" .json)
+              workflow_name=$(echo "$filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
+          
+              if [[ -n "$workflows" ]]; then
+                workflows="$workflows,$workflow_name"
+              else
+                workflows="$workflow_name"
+              fi
+              echo "Found: $workflow_name (from $file)"
+            done
+          
+            echo "workflows=$workflows" >> $GITHUB_OUTPUT
+            echo "⚠️ Using fallback detection: $workflows"
+          
           else
-            echo "Using fallback detection method"
-            workflows=$(node scripts/deployment-manager.js detect-workflows)
+            echo "❌ Not a push event, cannot detect workflows"
+            exit 1
           fi
-          
-          echo "workflows=$workflows" >> $GITHUB_OUTPUT
-          echo "Detected workflows: $workflows"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run full deployment
         run: |
