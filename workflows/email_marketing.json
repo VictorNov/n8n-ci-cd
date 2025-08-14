@@ -107,8 +107,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -720,
-        960
+        -2140,
+        760
       ],
       "id": "9d2d146c-4fcc-4f35-a29b-f17ecca04fd3",
       "name": "Code1"
@@ -146,8 +146,8 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        -500,
-        700
+        -1920,
+        500
       ],
       "id": "a5701c7a-9dcc-44e1-9186-ea26938f3998",
       "name": "GitHub1",
@@ -167,8 +167,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.9,
       "position": [
-        -720,
-        1220
+        -2140,
+        1020
       ],
       "id": "68e7da5e-12a0-4998-a2b6-fb1639ab5a91",
       "name": "AI Agent1"
@@ -180,8 +180,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -720,
-        700
+        -2140,
+        500
       ],
       "id": "136ad2c1-c522-40fb-bc13-fe3d580d60d0",
       "name": "Configuration1"
@@ -193,8 +193,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -720,
-        1740
+        680,
+        580
       ],
       "id": "e140a6a3-7c0e-4311-bd44-d858d86e3d64",
       "name": "Code2"
@@ -232,8 +232,8 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        -500,
-        1480
+        900,
+        320
       ],
       "id": "2f123927-01ea-4783-96ea-e7b90d95c6e3",
       "name": "GitHub2",
@@ -253,8 +253,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.9,
       "position": [
-        -720,
-        2000
+        680,
+        840
       ],
       "id": "bdff0e69-db54-4222-89fb-70753bc97b4b",
       "name": "AI Agent2"
@@ -266,8 +266,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -720,
-        1480
+        680,
+        320
       ],
       "id": "afb7f388-3937-4b7d-b4ef-440846a427ba",
       "name": "Configuration2"
