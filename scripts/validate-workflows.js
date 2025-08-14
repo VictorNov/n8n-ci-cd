@@ -5,7 +5,7 @@ const path = require('path');
 
 class SuffixAwareValidator {
     constructor() {
-        this.managedWorkflows = JSON.parse(fs.readFileSync('workflows/managed-workflows.json', 'utf8'));
+        this.managedWorkflows = JSON.parse(fs.readFileSync('config/managed-workflows.json', 'utf8'));
         this.errors = [];
         this.warnings = [];
     }

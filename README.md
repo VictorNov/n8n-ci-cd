@@ -58,15 +58,14 @@ Edit `config/n8n-config.json`:
 ```
 
 ### 3. Define Your Workflows
-Edit `workflows/managed-workflows.json` to list your workflows:
+Edit `config/managed-workflows.json` to list your workflows:
 ```json
 {
   "managedWorkflows": [
     {
       "baseName": "Customer Onboarding",
       "description": "New customer welcome automation",
-      "environments": ["dev", "prod"],
-      "requiresApproval": true
+      "environments": ["dev", "prod"]
     }
   ]
 }
@@ -136,7 +135,7 @@ npm install
 
 # Create configuration files
 cp config/n8n-config.json.example config/n8n-config.json
-cp workflows/managed-workflows.json.example workflows/managed-workflows.json
+cp config/managed-workflows.json.example config/managed-workflows.json
 ```
 
 ### Step 3: Configure Your Setup
@@ -147,37 +146,27 @@ Edit `config/n8n-config.json`:
   "n8n": {
     "baseUrl": "https://yourcompany.app.n8n.cloud",
     "webhookUrl": "https://yourcompany.app.n8n.cloud/webhook"
-  },
-  "deployment": {
-    "requireApprovalForProd": true,
-    "backupBeforeDeployment": true,
-    "validateWorkflows": true
   }
 }
 ```
 
-Edit `workflows/managed-workflows.json`:
+Edit `config/managed-workflows.json`:
 ```json
 {
   "managedWorkflows": [
     {
       "baseName": "Customer Onboarding",
       "description": "Automated new customer welcome sequence",
-      "tags": ["customer", "onboarding"],
-      "environments": ["dev", "prod"],
-      "requiresApproval": true
+      "environments": ["dev", "prod"]
     },
     {
       "baseName": "Email Marketing",
       "description": "Email campaign automation",
-      "tags": ["marketing", "email"],
-      "environments": ["dev", "prod"],
-      "requiresApproval": true
+      "environments": ["dev", "prod"]
     }
   ],
   "settings": {
-    "backupBeforeDeploy": true,
-    "validateBeforeImport": true
+    "backupBeforeDeploy": true
   }
 }
 ```
@@ -218,17 +207,10 @@ Each workflow in `managed-workflows.json` supports these options:
 {
   "baseName": "Workflow Name",           // Base name (without suffix)
   "description": "What this workflow does",
-  "tags": ["tag1", "tag2"],             // Optional: for organization
   "environments": ["dev", "prod"],       // Which environments to manage
   "variables": {                         // Environment-specific variables
     "dev": { "var1": "dev value" },
     "prod": { "var1": "prod value" }
-  },
-  "autoSync": false,                     // Auto-sync dev to prod (not recommended)
-  "requiresApproval": true,              // Require approval for prod deployment
-  "owner": "team-name",                  // Optional: responsible team
-  "notifications": {                     // Optional: custom notifications
-    "slack": "#team-channel"
   }
 }
 ```
@@ -241,8 +223,6 @@ Configure global settings in `managed-workflows.json`:
 {
   "settings": {
     "backupBeforeDeploy": true,            // Auto-backup before production deployment
-    "validateBeforeImport": true,        // Validate workflows before import
-    "requireManualActivation": true,     // Keep workflows inactive after import
     "maxBackupsToKeep": 10              // Automatic backup cleanup
   }
 }
@@ -755,7 +735,7 @@ console.log('Active:', workflow.active);
 
 # Validate managed workflows config
 node -e "
-const config = require('./workflows/managed-workflows.json');
+const config = require('./config/managed-workflows.json');
 console.log('Managed workflows:', config.managedWorkflows.length);
 config.managedWorkflows.forEach(w => console.log('-', w.baseName, '(' + w.environments.join(', ') + ')'));
 "

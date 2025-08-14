@@ -3,10 +3,7 @@
     {
       "baseName": "Email Marketing",
       "description": "Email campaign automation",
-      "tags": ["marketing", "email"],
       "environments": ["dev", "prod"],
-      "autoSync": true,
-      "requiresApproval": true,
       "variables": {
         "dev": { "var1": "some dev variable" },
         "prod": { "var1": "some prod variable" }
@@ -15,8 +12,6 @@
   ],
   "settings": {
     "backupBeforeDeploy": true,
-    "backupBeforeImport": true,
-    "validateBeforeImport": true,
-    "maxBackupsToKeep": 10
+    "backupBeforeImport": true
   }
 }

@@ -1,18 +1,5 @@
 {
   "n8n": {
     "baseUrl": "https://your_n8n_base_url"
-  },
-  "deployment": {
-    "requireApprovalForProd": true,
-    "backupBeforeDeployment": true,
-    "validateWorkflows": true,
-    "notifyOnFailure": true
-  },
-  "notifications": {
-    "slack": {
-      "devChannel": "#dev-deployments",
-      "prodChannel": "#prod-deployments",
-      "webhook": "YOUR_SLACK_WEBHOOK"
-    }
   }
 }

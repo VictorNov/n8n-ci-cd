@@ -8,7 +8,7 @@ const axios = require('axios');
 class WorkflowManager {
     constructor() {
         this.config = JSON.parse(fs.readFileSync('config/n8n-config.json', 'utf8'));
-        this.managedWorkflows = JSON.parse(fs.readFileSync('workflows/managed-workflows.json', 'utf8'));
+        this.managedWorkflows = JSON.parse(fs.readFileSync('config/managed-workflows.json', 'utf8'));
 
         this.client = axios.create({
             baseURL: this.config.n8n.baseUrl,

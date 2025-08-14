@@ -1,18 +1,5 @@
 {
   "n8n": {
     "baseUrl": "https://kezlya.app.n8n.cloud"
-  },
-  "deployment": {
-    "requireApprovalForProd": true,
-    "backupBeforeDeployment": true,
-    "validateWorkflows": true,
-    "notifyOnFailure": true
-  },
-  "notifications": {
-    "slack": {
-      "devChannel": "#dev-deployments",
-      "prodChannel": "#prod-deployments",
-      "webhook": "YOUR_SLACK_WEBHOOK"
-    }
   }
 }
