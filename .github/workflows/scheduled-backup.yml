@@ -36,18 +36,13 @@ jobs:
           backup_name="daily_auto_$(date +%Y%m%d_%H%M%S)"
           node scripts/manage-workflows.js backup prod "$backup_name"
 
-      - name: Cleanup old backups
-        run: |
-          # Keep 30 days of daily backups
-          node scripts/manage-workflows.js cleanup-backups 30
-
       - name: Commit backup
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
           if [[ -n "$(git status --porcelain)" ]]; then
-            git add workflows/backups/
+            git add backups/
             git commit -m "backup: daily automated backup $(date -u +%Y-%m-%d)"
             git push
           fi
