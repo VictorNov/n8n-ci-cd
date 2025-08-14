@@ -15,23 +15,56 @@ class DeploymentManager {
         let changedFiles;
 
         try {
-            if (beforeCommit && afterCommit) {
+            if (beforeCommit && afterCommit && beforeCommit !== '0000000000000000000000000000000000000000') {
+                console.log(`Checking diff between ${beforeCommit} and ${afterCommit}`);
                 // Get changed files from the push
                 changedFiles = execSync(`git diff --name-only ${beforeCommit}..${afterCommit}`, { encoding: 'utf8' });
             } else {
+                console.log('Using HEAD~1..HEAD comparison');
                 // Fallback: compare with previous commit
                 changedFiles = execSync('git diff --name-only HEAD~1 HEAD', { encoding: 'utf8' });
             }
         } catch (error) {
-            console.warn('⚠️ Could not get git diff, falling back to all workflows');
+            console.warn('⚠️ Could not get git diff, detecting all workflow files');
             // If git diff fails, get all workflow files
-            changedFiles = execSync('find workflows -name "*.json" | grep -v "_" || echo ""', { encoding: 'utf8' });
+            try {
+                if (fs.existsSync('workflows')) {
+                    const workflowFiles = fs.readdirSync('workflows')
+                        .filter(file => file.endsWith('.json') && !file.includes('_'))
+                        .map(file => `workflows/${file}`);
+                    changedFiles = workflowFiles.join('\n');
+                    console.log(`Found ${workflowFiles.length} workflow files in workflows directory`);
+                } else {
+                    console.warn('⚠️ workflows directory does not exist');
+                    changedFiles = '';
+                }
+            } catch (dirError) {
+                console.warn('⚠️ Could not read workflows directory:', dirError.message);
+                changedFiles = '';
+            }
         }
 
         console.log('Changed files:', changedFiles);
 
         const workflowsToDeploySet = new Set();
         const files = changedFiles.trim().split('\n').filter(f => f.trim());
+
+        if (files.length === 0) {
+            console.log('No files detected, checking for any workflow files in workflows directory');
+            // Last resort: check for any workflow files
+            try {
+                if (fs.existsSync('workflows')) {
+                    const allWorkflowFiles = fs.readdirSync('workflows')
+                        .filter(file => file.endsWith('.json'))
+                        .map(file => `workflows/${file}`);
+
+                    console.log(`Found ${allWorkflowFiles.length} total workflow files`);
+                    files.push(...allWorkflowFiles);
+                }
+            } catch (error) {
+                console.warn('⚠️ Could not list workflow files:', error.message);
+            }
+        }
 
         for (const file of files) {
             if (file.match(/^workflows\/(.+)\.json$/)) {
@@ -51,7 +84,23 @@ class DeploymentManager {
         console.log(`📊 Total workflows to deploy: ${workflowsToDeployArray.length}`);
 
         if (workflowsToDeployArray.length === 0) {
-            throw new Error('No workflows detected for deployment');
+            console.log('No workflows detected, listing directory contents for debugging:');
+            try {
+                if (fs.existsSync('.')) {
+                    const rootFiles = fs.readdirSync('.').slice(0, 10); // First 10 files
+                    console.log('Root directory contents (first 10):', rootFiles);
+                }
+                if (fs.existsSync('workflows')) {
+                    const workflowFiles = fs.readdirSync('workflows');
+                    console.log('Workflows directory contents:', workflowFiles);
+                } else {
+                    console.log('workflows directory does not exist');
+                }
+            } catch (error) {
+                console.log('Could not list directory contents:', error.message);
+            }
+
+            throw new Error('No workflows detected for deployment. Check that workflow files exist in the workflows/ directory.');
         }
 
         return workflowsToDeployArray;
@@ -60,23 +109,35 @@ class DeploymentManager {
     extractWorkflowBaseName(filePath) {
         console.log(`🔍 Extracting base name from: ${filePath}`);
 
-        const WorkflowManager = require('./manage-workflows.js');
-        const manager = new WorkflowManager();
-
         try {
-            if (fs.existsSync(filePath)) {
-                // Read the actual workflow to get its name
-                const workflow = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                const baseName = manager.getBaseNameFromWorkflowName(workflow.name);
-                console.log(`✅ Extracted base name: ${baseName}`);
-                return baseName;
-            } else {
-                // Fallback: derive from filename
-                const filename = path.basename(filePath, '.json');
-                const baseName = filename.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                console.log(`⚠️ Fallback base name: ${baseName}`);
-                return baseName;
+            // First try to use WorkflowManager if available
+            try {
+                const WorkflowManager = require('./manage-workflows.js');
+                const manager = new WorkflowManager();
+
+                if (fs.existsSync(filePath)) {
+                    // Read the actual workflow to get its name
+                    const workflow = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                    if (workflow.name && typeof manager.getBaseNameFromWorkflowName === 'function') {
+                        const baseName = manager.getBaseNameFromWorkflowName(workflow.name);
+                        console.log(`✅ Extracted base name from workflow name: ${baseName}`);
+                        return baseName;
+                    }
+                }
+            } catch (error) {
+                console.warn(`⚠️ Could not use WorkflowManager: ${error.message}`);
             }
+
+            // Fallback: derive from filename
+            const filename = path.basename(filePath, '.json');
+            const baseName = filename
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, l => l.toUpperCase())
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            console.log(`✅ Fallback base name from filename: ${baseName}`);
+            return baseName;
         } catch (error) {
             console.error(`❌ Failed to extract base name from ${filePath}: ${error.message}`);
             return null;
@@ -315,10 +376,17 @@ class DeploymentManager {
 
     findLatestReleaseTag(workflowName) {
         try {
-            const tags = execSync(`git tag -l "${workflowName}-*"`, { encoding: 'utf8' });
+            // Sanitize workflow name for Git tag search
+            const sanitizedName = workflowName.toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .replace(/-+/g, '-');
+
+            const tags = execSync(`git tag -l "${sanitizedName}-*"`, { encoding: 'utf8' });
             const tagList = tags.trim().split('\n').filter(t => t.trim());
 
             if (tagList.length === 0) {
+                console.log(`📋 No tags found for ${workflowName} (searched for: ${sanitizedName}-*)`);
                 return null;
             }
 
@@ -377,9 +445,10 @@ class DeploymentManager {
     }
 
     generateReleaseNotes(workflowName, deploymentData) {
-        const WorkflowManager = require('./manage-workflows.js');
-        const manager = new WorkflowManager();
-        const workflowFile = manager.generateFileName(workflowName);
+        // Simple filename generation as fallback
+        const workflowFile = workflowName.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '') + '.json';
 
         let notes = `## ${workflowName} Release\n\n`;
         notes += `**Deployment Status:** ✅ Successfully deployed to production\n`;

@@ -35,10 +35,12 @@ jobs:
         run: |
           echo "🔍 Detecting workflows to deploy"
           
-          if [[ "${{ github.event_name }}" == "push" ]]; then
+          # Check if this is a valid push with changes
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            echo "Using commit range: ${{ github.event.before }}..${{ github.event.after }}"
             workflows=$(node scripts/deployment-manager.js detect-workflows "${{ github.event.before }}" "${{ github.event.after }}")
           else
-            # Manual dispatch - would need to specify workflows or detect all
+            echo "Using fallback detection method"
             workflows=$(node scripts/deployment-manager.js detect-workflows)
           fi
           
