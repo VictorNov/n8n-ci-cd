@@ -11,7 +11,9 @@ on:
       workflow_name:
         description: |
           Workflow base name for release. Available workflows:
-          • No released workflows yet, type in a name of one listed in the managed-workflows.json file.
+          • Customer Onboarding (current: v1.2.3, suggested: v1.2.4)
+          • Email Marketing (current: v2.1.0, suggested: v2.1.1)
+          • Data Sync (current: No releases, suggested: v1.0.0)
         required: true
       version:
         description: 'Release version (current: will be updated automatically, suggested: will be updated automatically)'
@@ -115,7 +117,7 @@ jobs:
             npm run backup:restore [backup-name]
             ```
             Or trigger the "Emergency Restore from Backup" GitHub Action.
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
