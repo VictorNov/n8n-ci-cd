@@ -289,7 +289,7 @@ class WorkflowManager {
             workflows: results
         };
 
-        const summaryPath = path.join('workflows', `_export_summary_${environment}.json`);
+        const summaryPath = path.join('logs', `_export_summary_${environment}.json`);
         fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
         console.log(`📊 Export summary saved: ${summaryPath}`);
     }
@@ -960,7 +960,7 @@ class WorkflowManager {
             }))
         };
 
-        const summaryPath = path.join('workflows', `_import_summary_${environment}.json`);
+        const summaryPath = path.join('logs', `_import_summary_${environment}.json`);
         fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
         console.log(`📊 Import summary saved: ${summaryPath}`);
     }
