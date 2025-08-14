@@ -65,7 +65,7 @@ jobs:
             const rm = new ReleaseManager();
             console.log(rm.getWorkflowFileName('${{ github.event.inputs.workflow_name }}'));
           ")
-          echo "workflow_file=$workflow_file" >> $GITHUB_OUTPUT
+          echo "workflow_file=${workflow_file}" >> $GITHUB_OUTPUT
 
       - name: Create release tag
         run: |
