@@ -186,6 +186,9 @@ class WorkflowManager {
         if (this.config.settings.backupBeforeDeploy) {
             console.log(`💾 Creating backup before deploying to production...`);
             await this.createBackup('prod', `pre_deploy_auto_${new Date().toISOString().replace(/[:.]/g, '').split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '')}`);
+
+            // Ensure cleanup runs after backup during deployment to production
+            await this.cleanupOldBackups();
         }
 
         // First, export dev versions
@@ -658,6 +661,9 @@ class WorkflowManager {
         console.log(`✅ Backup created: ${backupName}`);
         console.log(`📁 Location: ${backupDir}`);
 
+        // Clean up old backups to respect maxBackupsToKeep setting
+        await this.cleanupOldBackups();
+
         return {
             backupName,
             backupDir,
@@ -665,7 +671,7 @@ class WorkflowManager {
         };
     }
 
-    async cleanupOldBackups(keepCount = this.config.settings.maxBackupsToKeep) {
+    async cleanupOldBackups(keepCount = this.config.settings.maxBackupsToKeep || 10) {
         const backupsDir = path.join('backups');
 
         if (!fs.existsSync(backupsDir)) {
@@ -676,7 +682,7 @@ class WorkflowManager {
         const backupDirs = fs.readdirSync(backupsDir)
             .filter(item => {
                 const itemPath = path.join(backupsDir, item);
-                return fs.statSync(itemPath).isDirectory() && item.startsWith('backup_');
+                return fs.statSync(itemPath).isDirectory();
             })
             .map(dir => ({
                 name: dir,
