@@ -1,4 +1,4 @@
-name: Export Development Workflows
+name: Commit development workflows
 
 permissions:
   contents: write
@@ -52,7 +52,7 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          
+
           if [[ -n "$(git status --porcelain)" ]]; then
             git add workflows/exported/
             git commit -m "chore: export dev workflows $(date -u +%Y-%m-%d)"
@@ -69,7 +69,7 @@ jobs:
           echo "**Date:** $(date -u)" >> export-summary.md
           echo "**Specific workflows:** ${{ github.event.inputs.workflows || 'All managed workflows' }}" >> export-summary.md
           echo "" >> export-summary.md
-          
+
           if [[ -f "workflows/exported/_export_summary_dev.json" ]]; then
             echo "**Results:**" >> export-summary.md
             node -e "
