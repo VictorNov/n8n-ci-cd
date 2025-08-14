@@ -380,12 +380,12 @@ class ReleaseManager {
         const tagName = `${sanitizedName}-${version}`;
         const message = `Release ${version} for workflow ${workflowName}`;
 
-        console.log(`🏷️ Creating release tag: ${tagName}`);
+        console.error(`🏷️ Creating release tag: ${tagName}`);
 
         try {
             execSync(`git tag -a "${tagName}" -m "${message}"`);
             execSync(`git push origin "${tagName}"`);
-            console.log(`✅ Created and pushed tag: ${tagName}`);
+            console.error(`✅ Created and pushed tag: ${tagName}`);
             return tagName;
         } catch (error) {
             console.error(`❌ Failed to create tag: ${error.message}`);
@@ -401,7 +401,7 @@ class ReleaseManager {
         const sanitizedName = this.sanitizeForGit(workflowName);
         const branchName = `release-candidate/${sanitizedName}-${version}`;
 
-        console.log(`🌿 Creating release candidate branch: ${branchName}`);
+        console.error(`🌿 Creating release candidate branch: ${branchName}`);
 
         try {
             execSync(`git checkout -b "${branchName}"`);
@@ -421,7 +421,7 @@ class ReleaseManager {
             execSync(`git commit -m "chore: create release candidate ${version} for ${workflowName}"`);
             execSync(`git push -u origin "${branchName}"`);
 
-            console.log(`✅ Created release branch: ${branchName}`);
+            console.error(`✅ Created release branch: ${branchName}`);
             return branchName;
         } catch (error) {
             console.error(`❌ Failed to create release branch: ${error.message}`);
@@ -624,7 +624,8 @@ if (require.main === module) {
                     if (!tagWorkflow || !tagVersion) throw new Error('Workflow name and version required');
 
                     const tag = releaseManager.createReleaseTag(tagWorkflow, tagVersion);
-                    console.log(tag);
+                    // Output only the tag name, no extra text
+                    process.stdout.write(tag);
                     break;
 
                 case 'create-branch':
@@ -633,7 +634,8 @@ if (require.main === module) {
                     if (!branchWorkflow || !branchVersion) throw new Error('Workflow name and version required');
 
                     const branch = releaseManager.createReleaseBranch(branchWorkflow, branchVersion);
-                    console.log(branch);
+                    // Output only the branch name, no extra text
+                    process.stdout.write(branch);
                     break;
 
                 case 'current-version':
