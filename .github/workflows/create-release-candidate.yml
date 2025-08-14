@@ -53,6 +53,12 @@ jobs:
           node scripts/release-manager.js validate "${{ github.event.inputs.workflow_name }}"
           node scripts/release-manager.js export "${{ github.event.inputs.workflow_name }}"
 
+      - name: Clean working directory
+        run: |
+          echo "🧹 Cleaning working directory"
+          git stash push -m "Auto-stash for release workflow" || true
+          git fetch origin
+
       - name: Ensure prod branch exists
         run: |
           echo "🌿 Ensuring prod branch exists"
