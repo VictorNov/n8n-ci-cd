@@ -10,15 +10,6 @@ on:
       workflows:
         description: 'Workflow base names to deploy (comma-separated)'
         required: true
-      skip_backup:
-        description: 'Skip backup creation'
-        required: false
-        default: false
-        type: boolean
-      custom_backup_name:
-        description: 'Custom backup name (optional)'
-        required: false
-        default: ''
 
 jobs:
   approve-production-deployment:
@@ -38,7 +29,6 @@ jobs:
 
             **Workflows to deploy:** ${{ github.event.inputs.workflows }}
             **Requested by:** ${{ github.actor }}
-            **Skip backup:** ${{ github.event.inputs.skip_backup }}
 
             ### Pre-deployment Checklist
             - [ ] Dev workflows have been tested
@@ -69,15 +59,10 @@ jobs:
           jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
 
       - name: Create automatic backup
-        if: github.event.inputs.skip_backup != 'true'
         run: |
           echo "💾 Creating automatic backup before deployment..."
 
-          if [[ -n "${{ github.event.inputs.custom_backup_name }}" ]]; then
-            backup_name="pre_deploy_${{ github.event.inputs.custom_backup_name }}_$(date +%Y%m%d_%H%M%S)"
-          else
-            backup_name="pre_deploy_auto_$(date +%Y%m%d_%H%M%S)"
-          fi
+          backup_name="pre_deploy_auto_$(date +%Y%m%d_%H%M%S)"
 
           node scripts/manage-workflows.js backup prod "$backup_name"
           echo "✅ Backup created: $backup_name"
@@ -156,9 +141,7 @@ jobs:
           echo "**Approved by:** Production approvers" >> deployment-summary.md
           echo "**Deployed by:** ${{ github.actor }}" >> deployment-summary.md
           echo "**Date:** $(date -u)" >> deployment-summary.md
-          echo "**Backup created:** ${{ github.event.inputs.skip_backup != 'true' && 'Yes' || 'No' }}" >> deployment-summary.md
-
-          if [[ "${{ github.event.inputs.skip_backup }}" != "true" ]]; then
+          echo "**Backup created:** Yes" >> deployment-summary.md
           echo "**Backup name:** $BACKUP_NAME" >> deployment-summary.md
           echo "" >> deployment-summary.md
           echo "### Rollback Instructions" >> deployment-summary.md
@@ -167,7 +150,6 @@ jobs:
           echo "npm run backup:restore $BACKUP_NAME" >> deployment-summary.md
           echo '```' >> deployment-summary.md
           echo "Or use GitHub Actions: Emergency Restore workflow" >> deployment-summary.md
-          fi
 
           echo "" >> deployment-summary.md
           echo "**⚠️ Important:** All deployed workflows are imported as INACTIVE for safety." >> deployment-summary.md
@@ -191,16 +173,3 @@ jobs:
           path: |
             workflows/backups/
             deployment-summary.md
-
-#      - name: Notify production deployment
-#        uses: 8398a7/action-slack@v3
-#        with:
-#          status: ${{ job.status }}
-#          channel: '#prod-deployments'
-#          text: |
-#            🚀 PRODUCTION DEPLOYMENT ${{ job.status }}!
-#
-#            Workflows: ${{ github.event.inputs.workflows }}
-#            Deployed by: ${{ github.actor }}
-#          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-#        if: always()
