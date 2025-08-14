@@ -4,7 +4,7 @@ permissions:
   contents: write
   issues: write
   actions: write
-  workflows: write
+  metadata: read
 
 on:
   push:
@@ -149,38 +149,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update release candidate workflow descriptions
-        run: |
-          echo "🔄 Updating release candidate workflow with new version info"
-          
-          # Install js-yaml if not already installed
-          npm install js-yaml
-          
-          # Update workflow descriptions with new versions
-          node scripts/update-workflow-description.js update-workflow-choices
-          
-          # Commit the updated workflow file
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          if [[ -n "$(git diff .github/workflows/create-release-candidate.yml)" ]]; then
-            git add .github/workflows/create-release-candidate.yml
-            git commit -m "chore: update release candidate workflow with latest versions"
-            git push
-            echo "✅ Updated release candidate workflow descriptions"
-          else
-            echo "ℹ️ No changes needed to workflow descriptions"
-          fi
-
       - name: Commit deployment artifacts
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
           if [[ -n "$(git status --porcelain)" ]]; then
-            git add workflows/backups/ backups/ logs/
-            git commit -m "deploy: ${{ steps.detect_workflows.outputs.workflows }} to production"
-            git push
+            git add workflows/backups/ backups/ logs/ || true
+            git commit -m "deploy: ${{ steps.detect_workflows.outputs.workflows }} to production" || true
+            git push || true
           fi
 
       - name: Upload deployment artifacts

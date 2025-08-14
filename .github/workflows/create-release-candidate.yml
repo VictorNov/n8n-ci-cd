@@ -10,13 +10,10 @@ on:
     inputs:
       workflow_name:
         description: |
-          Workflow base name for release. Available workflows:
-          • Customer Onboarding (current: v1.2.3, suggested: v1.2.4)
-          • Email Marketing (current: v2.1.0, suggested: v2.1.1)
-          • Data Sync (current: No releases, suggested: v1.0.0)
+          Workflow base name for release candidate (e.g., "My Workflow").:
         required: true
       version:
-        description: 'Release version (current: will be updated automatically, suggested: will be updated automatically)'
+        description: 'Release version (e.g., "1.0.0")'
         required: true
 
 jobs:
