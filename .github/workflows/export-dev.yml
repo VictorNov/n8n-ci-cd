@@ -73,7 +73,7 @@ jobs:
           if [[ -f "logs/_export_summary_dev.json" ]]; then
             echo "**Results:**" >> export-summary.md
             node -e "
-              const summary = JSON.parse(require('fs').readFileSync('workflows/exported/_export_summary_dev.json', 'utf8'));
+              const summary = JSON.parse(require('fs').readFileSync('logs/_export_summary_dev.json', 'utf8'));
               console.log('- Total workflows: ' + summary.totalWorkflows);
               console.log('- Successful: ' + summary.successful);
               console.log('- Failed: ' + summary.failed);
