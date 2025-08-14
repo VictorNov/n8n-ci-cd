@@ -9,10 +9,5 @@
         "prod": { "var1": "some prod variable" }
       }
     }
-  ],
-  "settings": {
-    "backupBeforeDeploy": true,
-    "backupBeforeImport": true,
-    "maxBackupsToKeep": 10
-  }
+  ]
 }

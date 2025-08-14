@@ -183,7 +183,7 @@ class WorkflowManager {
         console.log(`🔄 Deploying workflows from dev to prod...`);
 
         // Create backup before deploying if enabled in settings
-        if (this.managedWorkflows.settings.backupBeforeDeploy) {
+        if (this.config.settings.backupBeforeDeploy) {
             console.log(`💾 Creating backup before deploying to production...`);
             await this.createBackup('prod', `pre_deploy_auto_${new Date().toISOString().replace(/[:.]/g, '').split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '')}`);
         }
@@ -346,7 +346,7 @@ class WorkflowManager {
                     return await this.restoreFromBackup(backupName, workflowsToRestore.length > 0 ? workflowsToRestore : null);
 
                 case 'cleanup-backups':
-                    const keepCount = args[0] ? parseInt(args[0]) : 10;
+                    const keepCount = args[0] ? parseInt(args[0]) : this.config.settings.maxBackupsToKeep;
                     return await this.cleanupOldBackups(keepCount);
 
                 default:
@@ -665,7 +665,7 @@ class WorkflowManager {
         };
     }
 
-    async cleanupOldBackups(keepCount = 10) {
+    async cleanupOldBackups(keepCount = this.config.settings.maxBackupsToKeep) {
         const backupsDir = path.join('backups');
 
         if (!fs.existsSync(backupsDir)) {
@@ -709,7 +709,7 @@ class WorkflowManager {
         console.log(`🔄 Importing local workflows to ${environment}...`);
 
         // Create backup before importing if enabled in settings
-        if (this.managedWorkflows.settings.backupBeforeImport) {
+        if (this.config.settings.backupBeforeImport) {
             console.log(`💾 Creating backup before importing to ${environment}...`);
             await this.createBackup(environment, `pre_import_auto_${new Date().toISOString().replace(/[:.]/g, '').split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '')}`);
         }
