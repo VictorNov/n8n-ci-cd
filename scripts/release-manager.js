@@ -89,9 +89,20 @@ class ReleaseManager {
 
     getWorkflowFileName(workflowName) {
         try {
+            // First try to use WorkflowManager if available
             const WorkflowManager = require('./manage-workflows.js');
             const manager = new WorkflowManager();
-            return manager.generateFileName(workflowName);
+
+            if (typeof manager.generateFileName === 'function') {
+                const filename = manager.generateFileName(workflowName);
+                // Validate the filename format
+                if (filename && typeof filename === 'string' && filename.endsWith('.json')) {
+                    return filename;
+                }
+            }
+
+            // If WorkflowManager doesn't work properly, use fallback
+            return this.generateSimpleFileName(workflowName);
         } catch (error) {
             // Fallback to simple filename generation if WorkflowManager is not available
             console.warn(`⚠️ WorkflowManager not available, using fallback: ${error.message}`);
@@ -547,8 +558,15 @@ if (require.main === module) {
                     const filenameWorkflow = args[0];
                     if (!filenameWorkflow) throw new Error('Workflow name required');
 
-                    const filename = releaseManager.getWorkflowFileName(filenameWorkflow);
-                    console.log(filename);
+                    try {
+                        const filename = releaseManager.getWorkflowFileName(filenameWorkflow);
+                        // Output only the filename, no extra text
+                        process.stdout.write(filename);
+                    } catch (error) {
+                        // If there's an error, output the fallback filename
+                        const fallbackFilename = releaseManager.generateSimpleFileName(filenameWorkflow);
+                        process.stdout.write(fallbackFilename);
+                    }
                     break;
 
                 case 'create-tag':
