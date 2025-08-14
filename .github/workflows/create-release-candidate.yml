@@ -35,6 +35,11 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Install dependencies
         run: npm install
 
@@ -59,13 +64,11 @@ jobs:
           echo "🔍 Analyzing workflow changes"
           node scripts/release-manager.js analyze "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}"
           
-          # Get the workflow filename for outputs
-          workflow_file=$(node -e "
-            const ReleaseManager = require('./scripts/release-manager.js');
-            const rm = new ReleaseManager();
-            console.log(rm.getWorkflowFileName('${{ github.event.inputs.workflow_name }}'));
-          ")
-          echo "workflow_file=$workflow_file" >> $GITHUB_OUTPUT
+          # Get the workflow filename - simple fallback approach
+          echo "🔍 Setting workflow filename..."
+          workflow_file=$(echo "${{ github.event.inputs.workflow_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//' | sed 's/$/.json/')
+          echo "✅ Using filename: $workflow_file"
+          echo "workflow_file=${workflow_file}" >> $GITHUB_OUTPUT
 
       - name: Create release tag
         run: |
@@ -114,7 +117,7 @@ jobs:
             npm run backup:restore [backup-name]
             ```
             Or trigger the "Emergency Restore from Backup" GitHub Action.
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
         uses: actions/create-release@v1

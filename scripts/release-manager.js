@@ -46,8 +46,35 @@ class ReleaseManager {
         }
     }
 
+    ensureGitConfig() {
+        try {
+            // Check if user name is configured
+            try {
+                execSync('git config user.name', { stdio: 'ignore' });
+            } catch (error) {
+                // Set default git user name
+                execSync('git config user.name "github-actions[bot]"');
+                console.log('🔧 Set git user.name to github-actions[bot]');
+            }
+
+            // Check if user email is configured
+            try {
+                execSync('git config user.email', { stdio: 'ignore' });
+            } catch (error) {
+                // Set default git user email
+                execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
+                console.log('🔧 Set git user.email to github-actions[bot]@users.noreply.github.com');
+            }
+        } catch (error) {
+            console.warn(`⚠️ Failed to configure git: ${error.message}`);
+        }
+    }
+
     ensureProdBranch() {
         console.log(`🌿 Ensuring prod branch exists`);
+
+        // Ensure Git is configured
+        this.ensureGitConfig();
 
         try {
             // Check if prod branch exists locally
@@ -88,9 +115,41 @@ class ReleaseManager {
     }
 
     getWorkflowFileName(workflowName) {
-        const WorkflowManager = require('./manage-workflows.js');
-        const manager = new WorkflowManager();
-        return manager.generateFileName(workflowName);
+        try {
+            // First try to use WorkflowManager if available
+            const WorkflowManager = require('./manage-workflows.js');
+            const manager = new WorkflowManager();
+
+            if (typeof manager.generateFileName === 'function') {
+                const filename = manager.generateFileName(workflowName);
+                // Validate the filename format
+                if (filename && typeof filename === 'string' && filename.endsWith('.json')) {
+                    return filename;
+                }
+            }
+
+            // If WorkflowManager doesn't work properly, use fallback
+            return this.generateSimpleFileName(workflowName);
+        } catch (error) {
+            // Fallback to simple filename generation if WorkflowManager is not available
+            console.warn(`⚠️ WorkflowManager not available, using fallback: ${error.message}`);
+            return this.generateSimpleFileName(workflowName);
+        }
+    }
+
+    sanitizeForGit(name) {
+        // Convert to lowercase, replace spaces and special chars with hyphens, remove multiple hyphens
+        return name.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .replace(/-+/g, '-');
+    }
+
+    generateSimpleFileName(workflowName) {
+        // Simple fallback filename generation
+        return workflowName.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '') + '.json';
     }
 
     async analyzeWorkflowChanges(workflowName, version) {
@@ -111,22 +170,29 @@ class ReleaseManager {
         };
 
         try {
+            // Store current branch
+            const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+
             // Check if workflow exists in prod branch
-            execSync('git checkout prod', { stdio: 'ignore' });
+            try {
+                execSync('git checkout prod', { stdio: 'ignore' });
+                const prodWorkflowExists = fs.existsSync(workflowPath);
+                changeAnalysis.isNewWorkflow = !prodWorkflowExists;
 
-            const prodWorkflowExists = fs.existsSync(workflowPath);
-            changeAnalysis.isNewWorkflow = !prodWorkflowExists;
-
-            if (prodWorkflowExists) {
-                // Read prod version
-                changeAnalysis.prodWorkflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
-                console.log('📋 Found existing prod version for comparison');
-            } else {
-                console.log('📝 New workflow - no prod version exists');
+                if (prodWorkflowExists) {
+                    // Read prod version
+                    changeAnalysis.prodWorkflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
+                    console.log('📋 Found existing prod version for comparison');
+                } else {
+                    console.log('📝 New workflow - no prod version exists');
+                }
+            } catch (error) {
+                console.log('📝 New workflow - prod branch does not exist or workflow not found');
+                changeAnalysis.isNewWorkflow = true;
             }
 
-            // Switch back to main and read current version
-            execSync('git checkout main', { stdio: 'ignore' });
+            // Switch back to original branch and read current version
+            execSync(`git checkout ${currentBranch}`, { stdio: 'ignore' });
 
             if (fs.existsSync(workflowPath)) {
                 changeAnalysis.mainWorkflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
@@ -142,11 +208,17 @@ class ReleaseManager {
                 );
             }
 
+            // Save analysis for later use
+            this.saveChangelogToFile(changeAnalysis);
+
             return changeAnalysis;
         } catch (error) {
-            // Make sure we're back on main branch
+            // Make sure we're back on the original branch
             try {
-                execSync('git checkout main', { stdio: 'ignore' });
+                const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+                if (currentBranch !== 'main') {
+                    execSync('git checkout main', { stdio: 'ignore' });
+                }
             } catch (checkoutError) {
                 console.warn('⚠️ Failed to switch back to main branch');
             }
@@ -300,15 +372,20 @@ class ReleaseManager {
     }
 
     createReleaseTag(workflowName, version) {
-        const tagName = `${workflowName}-${version}`;
+        // Ensure Git is configured
+        this.ensureGitConfig();
+
+        // Sanitize workflow name for Git tag (no spaces, special chars)
+        const sanitizedName = this.sanitizeForGit(workflowName);
+        const tagName = `${sanitizedName}-${version}`;
         const message = `Release ${version} for workflow ${workflowName}`;
 
-        console.log(`🏷️ Creating release tag: ${tagName}`);
+        console.error(`🏷️ Creating release tag: ${tagName}`);
 
         try {
             execSync(`git tag -a "${tagName}" -m "${message}"`);
             execSync(`git push origin "${tagName}"`);
-            console.log(`✅ Created and pushed tag: ${tagName}`);
+            console.error(`✅ Created and pushed tag: ${tagName}`);
             return tagName;
         } catch (error) {
             console.error(`❌ Failed to create tag: ${error.message}`);
@@ -317,9 +394,14 @@ class ReleaseManager {
     }
 
     createReleaseBranch(workflowName, version) {
-        const branchName = `release-candidate/${workflowName}-${version}`;
+        // Ensure Git is configured
+        this.ensureGitConfig();
 
-        console.log(`🌿 Creating release candidate branch: ${branchName}`);
+        // Sanitize workflow name for Git branch (no spaces, special chars)
+        const sanitizedName = this.sanitizeForGit(workflowName);
+        const branchName = `release-candidate/${sanitizedName}-${version}`;
+
+        console.error(`🌿 Creating release candidate branch: ${branchName}`);
 
         try {
             execSync(`git checkout -b "${branchName}"`);
@@ -339,7 +421,7 @@ class ReleaseManager {
             execSync(`git commit -m "chore: create release candidate ${version} for ${workflowName}"`);
             execSync(`git push -u origin "${branchName}"`);
 
-            console.log(`✅ Created release branch: ${branchName}`);
+            console.error(`✅ Created release branch: ${branchName}`);
             return branchName;
         } catch (error) {
             console.error(`❌ Failed to create release branch: ${error.message}`);
@@ -372,19 +454,23 @@ Merge the associated pull request to deploy to production.
         console.log(`🔍 Finding current released version for: ${workflowName}`);
 
         try {
-            // Get all tags for this workflow
-            const tagsOutput = execSync(`git tag -l "${workflowName}-*"`, { encoding: 'utf8' });
+            // Sanitize workflow name for Git operations
+            const sanitizedName = this.sanitizeForGit(workflowName);
+
+            // Get all tags for this workflow (using sanitized name)
+            const tagsOutput = execSync(`git tag -l "${sanitizedName}-*"`, { encoding: 'utf8' });
             const tags = tagsOutput.trim().split('\n').filter(t => t.trim());
 
             if (tags.length === 0) {
-                console.log(`📋 No previous releases found for ${workflowName}`);
+                console.log(`📋 No previous releases found for ${workflowName} (searched for: ${sanitizedName}-*)`);
                 return null;
             }
 
             // Extract versions and sort them
+            const escapedName = sanitizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const versions = tags
                 .map(tag => {
-                    const match = tag.match(new RegExp(`^${workflowName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(.+)$`));
+                    const match = tag.match(new RegExp(`^${escapedName}-(.+)$`));
                     return match ? { tag, version: match[1] } : null;
                 })
                 .filter(v => v !== null)
@@ -515,7 +601,21 @@ if (require.main === module) {
 
                     const analysis = await releaseManager.analyzeWorkflowChanges(analyzeWorkflow, version);
                     console.log('Analysis:', JSON.stringify(analysis, null, 2));
-                    releaseManager.saveChangelogToFile(analysis);
+                    break;
+
+                case 'get-workflow-filename':
+                    const filenameWorkflow = args[0];
+                    if (!filenameWorkflow) throw new Error('Workflow name required');
+
+                    try {
+                        const filename = releaseManager.getWorkflowFileName(filenameWorkflow);
+                        // Output only the filename, no extra text
+                        process.stdout.write(filename);
+                    } catch (error) {
+                        // If there's an error, output the fallback filename
+                        const fallbackFilename = releaseManager.generateSimpleFileName(filenameWorkflow);
+                        process.stdout.write(fallbackFilename);
+                    }
                     break;
 
                 case 'create-tag':
@@ -524,7 +624,8 @@ if (require.main === module) {
                     if (!tagWorkflow || !tagVersion) throw new Error('Workflow name and version required');
 
                     const tag = releaseManager.createReleaseTag(tagWorkflow, tagVersion);
-                    console.log(`Created tag: ${tag}`);
+                    // Output only the tag name, no extra text
+                    process.stdout.write(tag);
                     break;
 
                 case 'create-branch':
@@ -533,7 +634,8 @@ if (require.main === module) {
                     if (!branchWorkflow || !branchVersion) throw new Error('Workflow name and version required');
 
                     const branch = releaseManager.createReleaseBranch(branchWorkflow, branchVersion);
-                    console.log(`Created branch: ${branch}`);
+                    // Output only the branch name, no extra text
+                    process.stdout.write(branch);
                     break;
 
                 case 'current-version':
@@ -570,6 +672,7 @@ if (require.main === module) {
                     console.log('  export <workflow-name>');
                     console.log('  ensure-prod-branch');
                     console.log('  analyze <workflow-name> <version>');
+                    console.log('  get-workflow-filename <workflow-name>');
                     console.log('  create-tag <workflow-name> <version>');
                     console.log('  create-branch <workflow-name> <version>');
             }
