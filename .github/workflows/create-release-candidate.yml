@@ -1,0 +1,137 @@
+name: Create Release Candidate
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_name:
+        description: |
+          Workflow base name for release. Available workflows:
+          • Customer Onboarding (current: v1.2.3, suggested: v1.2.4)
+          • Email Marketing (current: v2.1.0, suggested: v2.1.1)
+          • Data Sync (current: No releases, suggested: v1.0.0)
+        required: true
+      version:
+        description: 'Release version (current: will be updated automatically, suggested: will be updated automatically)'
+        required: true
+
+jobs:
+  create-release-candidate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Inject API key into existing config
+        run: |
+          jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
+
+      - name: Validate and export workflow
+        run: |
+          echo "🔍 Validating and exporting workflow"
+          node scripts/release-manager.js validate "${{ github.event.inputs.workflow_name }}"
+          node scripts/release-manager.js export "${{ github.event.inputs.workflow_name }}"
+
+      - name: Ensure prod branch exists
+        run: |
+          echo "🌿 Ensuring prod branch exists"
+          node scripts/release-manager.js ensure-prod-branch
+
+      - name: Analyze workflow changes
+        id: analyze
+        run: |
+          echo "🔍 Analyzing workflow changes"
+          node scripts/release-manager.js analyze "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}"
+          
+          # Get the workflow filename for outputs
+          workflow_file=$(node -e "
+            const ReleaseManager = require('./scripts/release-manager.js');
+            const rm = new ReleaseManager();
+            console.log(rm.getWorkflowFileName('${{ github.event.inputs.workflow_name }}'));
+          ")
+          echo "workflow_file=$workflow_file" >> $GITHUB_OUTPUT
+
+      - name: Create release tag
+        run: |
+          echo "🏷️ Creating release tag"
+          tag_name=$(node scripts/release-manager.js create-tag "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}")
+          echo "TAG_NAME=$tag_name" >> $GITHUB_ENV
+
+      - name: Create release candidate branch
+        run: |
+          echo "🌿 Creating release candidate branch"
+          rc_branch=$(node scripts/release-manager.js create-branch "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}")
+          echo "RC_BRANCH=$rc_branch" >> $GITHUB_ENV
+
+      - name: Create pull request to prod
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: ${{ env.RC_BRANCH }}
+          destination_branch: prod
+          pr_title: "🚀 Release ${{ github.event.inputs.version }}: ${{ github.event.inputs.workflow_name }}"
+          pr_body: |
+            ## Release Candidate: ${{ github.event.inputs.workflow_name }} ${{ github.event.inputs.version }}
+            
+            **Created by:** ${{ github.actor }}
+            **Release Tag:** ${{ env.TAG_NAME }}
+            
+            ### 📋 Pre-deployment Checklist
+            - [ ] Dev workflow has been tested thoroughly
+            - [ ] No critical issues identified
+            - [ ] Stakeholders have been notified
+            - [ ] Breaking changes documented
+            - [ ] Rollback plan confirmed
+            
+            ### 📊 Workflow Changes
+            
+            $(cat workflow_changes.md)
+            
+            ### 🚨 Important Notes
+            - Merging this PR will trigger automatic production deployment
+            - A backup will be created automatically before deployment
+            - Deployed workflow will be imported as INACTIVE for safety
+            - Manual activation required after deployment verification
+            
+            ### 🔄 Rollback Instructions
+            If issues occur after deployment, use:
+            ```bash
+            npm run backup:restore [backup-name]
+            ```
+            Or trigger the "Emergency Restore from Backup" GitHub Action.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          release_name: "${{ github.event.inputs.workflow_name }} ${{ github.event.inputs.version }}"
+          body_path: workflow_changes.md
+          draft: false
+          prerelease: false
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-${{ github.event.inputs.workflow_name }}-${{ github.event.inputs.version }}
+          path: |
+            workflow_changes.md
+            RELEASE_INFO.md
+            workflows/${{ steps.analyze.outputs.workflow_file }}

@@ -1,0 +1,129 @@
+name: Deploy to Production
+
+permissions:
+  contents: write
+  issues: write
+
+on:
+  push:
+    branches: [ prod ]
+  workflow_dispatch:
+    inputs:
+      skip_backup:
+        description: 'Skip automatic backup creation'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy-to-production:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Inject API key into existing config
+        run: |
+          jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
+
+      - name: Detect workflows to deploy
+        id: detect_workflows
+        run: |
+          echo "🔍 Detecting workflows to deploy"
+          
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            workflows=$(node scripts/deployment-manager.js detect-workflows "${{ github.event.before }}" "${{ github.event.after }}")
+          else
+            # Manual dispatch - would need to specify workflows or detect all
+            workflows=$(node scripts/deployment-manager.js detect-workflows)
+          fi
+          
+          echo "workflows=$workflows" >> $GITHUB_OUTPUT
+          echo "Detected workflows: $workflows"
+
+      - name: Run full deployment
+        run: |
+          echo "🚀 Running full deployment process"
+          
+          node scripts/deployment-manager.js full-deploy \
+            "${{ steps.detect_workflows.outputs.workflows }}" \
+            "${{ github.event.inputs.skip_backup }}" \
+            "${{ github.actor }}" \
+            "${{ github.sha }}"
+
+      - name: Update releases with deployment status
+        if: github.event_name == 'push'
+        run: |
+          echo "🏷️ Updating releases with deployment status"
+          
+          # This would use gh CLI in actual GitHub Actions
+          IFS=',' read -ra WORKFLOWS <<< "${{ steps.detect_workflows.outputs.workflows }}"
+          
+          for workflow in "${WORKFLOWS[@]}"; do
+            workflow=$(echo "$workflow" | xargs)
+            echo "Updating release for: $workflow"
+          
+            # Find latest tag and update (simplified for demo)
+            latest_tag=$(git tag -l "${workflow}-*" | sort -V | tail -n1)
+            if [[ -n "$latest_tag" ]]; then
+              echo "Would update release: $latest_tag"
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update release candidate workflow descriptions
+        run: |
+          echo "🔄 Updating release candidate workflow with new version info"
+          
+          # Install js-yaml if not already installed
+          npm install js-yaml
+          
+          # Update workflow descriptions with new versions
+          node scripts/update-workflow-description.js update-workflow-choices
+          
+          # Commit the updated workflow file
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [[ -n "$(git diff .github/workflows/create-release-candidate.yml)" ]]; then
+            git add .github/workflows/create-release-candidate.yml
+            git commit -m "chore: update release candidate workflow with latest versions"
+            git push
+            echo "✅ Updated release candidate workflow descriptions"
+          else
+            echo "ℹ️ No changes needed to workflow descriptions"
+          fi
+
+      - name: Commit deployment artifacts
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add workflows/backups/ backups/ logs/
+            git commit -m "deploy: ${{ steps.detect_workflows.outputs.workflows }} to production"
+            git push
+          fi
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-deployment-${{ github.run_number }}
+          path: |
+            workflows/backups/
+            backups/
+            logs/
+            deployment-summary.md
+          retention-days: 90
