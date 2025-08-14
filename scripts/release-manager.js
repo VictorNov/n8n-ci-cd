@@ -110,6 +110,14 @@ class ReleaseManager {
         }
     }
 
+    sanitizeForGit(name) {
+        // Convert to lowercase, replace spaces and special chars with hyphens, remove multiple hyphens
+        return name.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .replace(/-+/g, '-');
+    }
+
     generateSimpleFileName(workflowName) {
         // Simple fallback filename generation
         return workflowName.toLowerCase()
@@ -337,7 +345,9 @@ class ReleaseManager {
     }
 
     createReleaseTag(workflowName, version) {
-        const tagName = `${workflowName}-${version}`;
+        // Sanitize workflow name for Git tag (no spaces, special chars)
+        const sanitizedName = this.sanitizeForGit(workflowName);
+        const tagName = `${sanitizedName}-${version}`;
         const message = `Release ${version} for workflow ${workflowName}`;
 
         console.log(`🏷️ Creating release tag: ${tagName}`);
@@ -354,7 +364,9 @@ class ReleaseManager {
     }
 
     createReleaseBranch(workflowName, version) {
-        const branchName = `release-candidate/${workflowName}-${version}`;
+        // Sanitize workflow name for Git branch (no spaces, special chars)
+        const sanitizedName = this.sanitizeForGit(workflowName);
+        const branchName = `release-candidate/${sanitizedName}-${version}`;
 
         console.log(`🌿 Creating release candidate branch: ${branchName}`);
 
@@ -409,19 +421,23 @@ Merge the associated pull request to deploy to production.
         console.log(`🔍 Finding current released version for: ${workflowName}`);
 
         try {
-            // Get all tags for this workflow
-            const tagsOutput = execSync(`git tag -l "${workflowName}-*"`, { encoding: 'utf8' });
+            // Sanitize workflow name for Git operations
+            const sanitizedName = this.sanitizeForGit(workflowName);
+
+            // Get all tags for this workflow (using sanitized name)
+            const tagsOutput = execSync(`git tag -l "${sanitizedName}-*"`, { encoding: 'utf8' });
             const tags = tagsOutput.trim().split('\n').filter(t => t.trim());
 
             if (tags.length === 0) {
-                console.log(`📋 No previous releases found for ${workflowName}`);
+                console.log(`📋 No previous releases found for ${workflowName} (searched for: ${sanitizedName}-*)`);
                 return null;
             }
 
             // Extract versions and sort them
+            const escapedName = sanitizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const versions = tags
                 .map(tag => {
-                    const match = tag.match(new RegExp(`^${workflowName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(.+)$`));
+                    const match = tag.match(new RegExp(`^${escapedName}-(.+)$`));
                     return match ? { tag, version: match[1] } : null;
                 })
                 .filter(v => v !== null)
