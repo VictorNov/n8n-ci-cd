@@ -7,13 +7,6 @@ permissions:
 on:
   push:
     branches: [ prod ]
-  workflow_dispatch:
-    inputs:
-      skip_backup:
-        description: 'Skip automatic backup creation'
-        required: false
-        default: false
-        type: boolean
 
 jobs:
   deploy-to-production:
