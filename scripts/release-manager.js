@@ -88,9 +88,22 @@ class ReleaseManager {
     }
 
     getWorkflowFileName(workflowName) {
-        const WorkflowManager = require('./manage-workflows.js');
-        const manager = new WorkflowManager();
-        return manager.generateFileName(workflowName);
+        try {
+            const WorkflowManager = require('./manage-workflows.js');
+            const manager = new WorkflowManager();
+            return manager.generateFileName(workflowName);
+        } catch (error) {
+            // Fallback to simple filename generation if WorkflowManager is not available
+            console.warn(`⚠️ WorkflowManager not available, using fallback: ${error.message}`);
+            return this.generateSimpleFileName(workflowName);
+        }
+    }
+
+    generateSimpleFileName(workflowName) {
+        // Simple fallback filename generation
+        return workflowName.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '') + '.json';
     }
 
     async analyzeWorkflowChanges(workflowName, version) {
@@ -111,22 +124,29 @@ class ReleaseManager {
         };
 
         try {
+            // Store current branch
+            const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+
             // Check if workflow exists in prod branch
-            execSync('git checkout prod', { stdio: 'ignore' });
+            try {
+                execSync('git checkout prod', { stdio: 'ignore' });
+                const prodWorkflowExists = fs.existsSync(workflowPath);
+                changeAnalysis.isNewWorkflow = !prodWorkflowExists;
 
-            const prodWorkflowExists = fs.existsSync(workflowPath);
-            changeAnalysis.isNewWorkflow = !prodWorkflowExists;
-
-            if (prodWorkflowExists) {
-                // Read prod version
-                changeAnalysis.prodWorkflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
-                console.log('📋 Found existing prod version for comparison');
-            } else {
-                console.log('📝 New workflow - no prod version exists');
+                if (prodWorkflowExists) {
+                    // Read prod version
+                    changeAnalysis.prodWorkflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
+                    console.log('📋 Found existing prod version for comparison');
+                } else {
+                    console.log('📝 New workflow - no prod version exists');
+                }
+            } catch (error) {
+                console.log('📝 New workflow - prod branch does not exist or workflow not found');
+                changeAnalysis.isNewWorkflow = true;
             }
 
-            // Switch back to main and read current version
-            execSync('git checkout main', { stdio: 'ignore' });
+            // Switch back to original branch and read current version
+            execSync(`git checkout ${currentBranch}`, { stdio: 'ignore' });
 
             if (fs.existsSync(workflowPath)) {
                 changeAnalysis.mainWorkflow = JSON.parse(fs.readFileSync(workflowPath, 'utf8'));
@@ -142,11 +162,17 @@ class ReleaseManager {
                 );
             }
 
+            // Save analysis for later use
+            this.saveChangelogToFile(changeAnalysis);
+
             return changeAnalysis;
         } catch (error) {
-            // Make sure we're back on main branch
+            // Make sure we're back on the original branch
             try {
-                execSync('git checkout main', { stdio: 'ignore' });
+                const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+                if (currentBranch !== 'main') {
+                    execSync('git checkout main', { stdio: 'ignore' });
+                }
             } catch (checkoutError) {
                 console.warn('⚠️ Failed to switch back to main branch');
             }
@@ -515,7 +541,14 @@ if (require.main === module) {
 
                     const analysis = await releaseManager.analyzeWorkflowChanges(analyzeWorkflow, version);
                     console.log('Analysis:', JSON.stringify(analysis, null, 2));
-                    releaseManager.saveChangelogToFile(analysis);
+                    break;
+
+                case 'get-workflow-filename':
+                    const filenameWorkflow = args[0];
+                    if (!filenameWorkflow) throw new Error('Workflow name required');
+
+                    const filename = releaseManager.getWorkflowFileName(filenameWorkflow);
+                    console.log(filename);
                     break;
 
                 case 'create-tag':
@@ -524,7 +557,7 @@ if (require.main === module) {
                     if (!tagWorkflow || !tagVersion) throw new Error('Workflow name and version required');
 
                     const tag = releaseManager.createReleaseTag(tagWorkflow, tagVersion);
-                    console.log(`Created tag: ${tag}`);
+                    console.log(tag);
                     break;
 
                 case 'create-branch':
@@ -533,7 +566,7 @@ if (require.main === module) {
                     if (!branchWorkflow || !branchVersion) throw new Error('Workflow name and version required');
 
                     const branch = releaseManager.createReleaseBranch(branchWorkflow, branchVersion);
-                    console.log(`Created branch: ${branch}`);
+                    console.log(branch);
                     break;
 
                 case 'current-version':
@@ -570,6 +603,7 @@ if (require.main === module) {
                     console.log('  export <workflow-name>');
                     console.log('  ensure-prod-branch');
                     console.log('  analyze <workflow-name> <version>');
+                    console.log('  get-workflow-filename <workflow-name>');
                     console.log('  create-tag <workflow-name> <version>');
                     console.log('  create-branch <workflow-name> <version>');
             }

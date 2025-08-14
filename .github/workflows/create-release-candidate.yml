@@ -59,12 +59,8 @@ jobs:
           echo "🔍 Analyzing workflow changes"
           node scripts/release-manager.js analyze "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}"
           
-          # Get the workflow filename for outputs
-          workflow_file=$(node -e "
-            const ReleaseManager = require('./scripts/release-manager.js');
-            const rm = new ReleaseManager();
-            console.log(rm.getWorkflowFileName('${{ github.event.inputs.workflow_name }}'));
-          ")
+          # Get the workflow filename for outputs - Fixed method
+          workflow_file=$(node scripts/release-manager.js get-workflow-filename "${{ github.event.inputs.workflow_name }}")
           echo "workflow_file=${workflow_file}" >> $GITHUB_OUTPUT
 
       - name: Create release tag
