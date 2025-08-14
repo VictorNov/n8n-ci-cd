@@ -76,19 +76,6 @@
     },
     {
       "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 1.9,
-      "position": [
-        -820,
-        -80
-      ],
-      "id": "1658cc66-3df0-4caa-a6bd-2c79a068535a",
-      "name": "AI Agent"
-    },
-    {
-      "parameters": {
         "jsCode": "return {\n  \"var1\": \"some dev variable\"\n};"
       },
       "type": "n8n-nodes-base.code",
@@ -287,13 +274,7 @@
     },
     "Code": {
       "main": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "GitHub": {
@@ -361,17 +342,6 @@
         [
           {
             "node": "Code",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "AI Agent": {
-      "main": [
-        [
-          {
-            "node": "Code2",
             "type": "main",
             "index": 0
           }
