@@ -1,5 +1,10 @@
 {
   "n8n": {
     "baseUrl": "https://your_n8n_base_url"
+  },
+  "settings": {
+    "backupBeforeDeploy": true,
+    "backupBeforeImport": true,
+    "maxBackupsToKeep": 10
   }
 }

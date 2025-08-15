@@ -3,7 +3,6 @@
     {
       "baseName": "Email Marketing",
       "description": "Email campaign automation",
-      "environments": ["dev", "prod"],
       "variables": {
         "dev": { "var1": "some dev variable" },
         "prod": { "var1": "some prod variable" }
