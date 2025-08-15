@@ -15,84 +15,33 @@ A comprehensive CI/CD solution for managing n8n workflows in a single Cloud inst
 
 ## 📋 Table of Contents
 
-- [Quick Start](#quick-start)
-- [Project Setup](#project-setup)
+- [Setup & Configuration](#setup--configuration)
 - [GitHub Actions](#github-actions)
 - [Daily Workflow](#daily-workflow)
 - [Production Deployment](#production-deployment)
 - [Backup & Restore](#backup--restore)
 - [Troubleshooting](#troubleshooting)
 
-## 🚀 Quick Start
-
-### 1. Set Up Your Repository
-
-1. **Fork or clone** this repository to your GitHub account
-2. **Install** on your local machine if you want to make local changes
-
-### 2. Configure Your n8n Instance
-
-1. **Create a `.env` file** with your n8n API key:
-   ```
-   N8N_API_KEY=your-n8n-api-key
-   ```
-
-2. **Copy and edit configuration files**:
-   - Copy `config/n8n-config.json.example` to `config/n8n-config.json`
-   - Update with your n8n Cloud URL:
-     ```json
-     {
-       "n8n": {
-         "baseUrl": "https://yourcompany.app.n8n.cloud"
-       }
-     }
-     ```
-
-### 3. Define Your Workflows
-
-1. **Copy and edit** `config/managed-workflows.json.example` to `config/managed-workflows.json`
-2. **List your workflows**:
-   ```json
-   {
-     "managedWorkflows": [
-       {
-         "baseName": "Customer Onboarding",
-         "description": "New customer welcome automation"
-       }
-     ]
-   }
-   ```
-
-### 4. Set Up GitHub Actions
-
-1. **Add your n8n API key** as a GitHub repository secret
-2. **Run the "Commit development workflows" action** to export your workflows
-3. **Create a release candidate** when you're ready to deploy to production
-
-## 🔧 Project Setup
+## 🔧 Setup & Configuration
 
 ### Prerequisites
 
 - **n8n Cloud**: Paid subscription with API access
 - **GitHub**: Repository with Actions enabled
-- **Node.js**: Version 18 or higher
+- **Node.js**: Version 18 or higher (for local development)
 - **Workflow Naming**: Use `-dev` and `-prod` suffixes (e.g., "Customer Onboarding-dev")
 
-### GitHub Repository Configuration
+### 1. Repository Setup
 
-1. **Set up GitHub Secrets**:
-   - Go to your repository → Settings → Secrets and variables → Actions
-   - Add a new repository secret:
-     - Name: `N8N_API_KEY`
-     - Value: Your n8n API key
+1. **Fork or clone** this repository to your GitHub account
+2. **Install** on your local machine if you want to make local changes:
+   ```bash
+   git clone git@github.com:VictorNov/n8n-ci-cd.git
+   cd n8n-ci-cd
+   npm install
+   ```
 
-2. **Set up GitHub Environments**:
-   - Go to Settings → Environments → New environment
-   - Create "production" environment
-   - Add required reviewers for production deployments
-   - Create "emergency" environment for restore operations
-
-### n8n API Key
+### 2. n8n API Key
 
 1. Log into your n8n Cloud instance
 2. Go to **Settings** → **n8n API**
@@ -101,32 +50,88 @@ A comprehensive CI/CD solution for managing n8n workflows in a single Cloud inst
 5. Set expiration: 1 year
 6. Copy the key immediately (you won't see it again!)
 
-### Configuration Files
+### 3. GitHub Repository Configuration
 
-1. **n8n-config.json**:
-   ```json
-   {
-     "n8n": {
-       "baseUrl": "https://yourcompany.app.n8n.cloud"
-     },
-     "settings": {
-       "backupBeforeDeploy": true,
-       "maxBackupsToKeep": 10
-     }
-   }
+1. **Set up GitHub Secrets**:
+   - Go to your repository → Settings → Secrets and variables → Actions
+   - Add a new repository secret:
+     - Name: `N8N_API_KEY`
+     - Value: Your n8n API key from step 2
+
+### 4. Configuration Files
+
+1. **Create a `.env` file** (for local development):
+   ```
+   N8N_API_KEY=your-n8n-api-key
    ```
 
-2. **managed-workflows.json**:
-   ```json
-   {
-     "managedWorkflows": [
-       {
-         "baseName": "Customer Onboarding",
-         "description": "Automated welcome sequence"
+2. **n8n-config.json**:
+   - Copy `config/n8n-config.json.example` to `config/n8n-config.json`
+   - Update with your n8n Cloud URL:
+     ```json
+     {
+       "n8n": {
+         "baseUrl": "https://yourcompany.app.n8n.cloud"
+       },
+       "settings": {
+         "backupBeforeDeploy": true,
+         "maxBackupsToKeep": 10
        }
-     ]
-   }
-   ```
+     }
+     ```
+
+3. **managed-workflows.json**:
+   - Copy `config/managed-workflows.json.example` to `config/managed-workflows.json`
+   - List your workflows:
+     ```json
+     {
+       "managedWorkflows": [
+         {
+           "baseName": "Customer Onboarding",
+           "description": "New customer welcome automation"
+         }
+       ]
+     }
+     ```
+
+### 5. Managing Environment Variables
+
+You can define environment-specific variables for your workflows in the `managed-workflows.json` file:
+
+```json
+{
+  "managedWorkflows": [
+    {
+      "baseName": "Customer Onboarding",
+      "description": "New customer welcome automation",
+      "variables": {
+        "dev": { 
+          "apiUrl": "https://dev-api.example.com",
+          "retryAttempts": 3
+        },
+        "prod": { 
+          "apiUrl": "https://api.example.com",
+          "retryAttempts": 5
+        }
+      }
+    }
+  ]
+}
+```
+
+These variables are automatically injected into your workflows during deployment:
+
+1. The system looks for a "Configuration" or "Variables" node in your workflow
+2. If found, it updates the node with environment-specific variables
+3. If not found, it creates a new "Configuration" node
+
+This allows you to maintain different configurations for development and production environments without manually changing values when deploying.
+
+### 6. Start Using
+
+1. **Add your n8n API key** as a GitHub repository secret
+2. **Run the "Commit development workflows" action** to export your workflows
+3. **Create a release candidate** when you're ready to deploy to production
 
 ## 🔄 Daily Workflow
 
@@ -274,9 +279,7 @@ Backups are stored in the `backups/` directory in your repository, with each bac
 
 ### Deploying to Production
 
-There are two ways to deploy workflows to production:
-
-#### Method 1: Using Release Candidate (Recommended)
+#### Using Release Candidate
 
 1. **Create a Release Candidate**:
    - Go to **Actions** → **"Create Release Candidate"**
