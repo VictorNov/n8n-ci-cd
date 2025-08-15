@@ -122,7 +122,7 @@ class SuffixAwareValidator {
 
         if (managedConfig) {
             // Check if this environment is expected for this workflow
-            if (!managedConfig.environments.includes(environment)) {
+            if (!['dev', 'prod'].includes(environment)) {
                 this.warnings.push({
                     file: fileName,
                     warning: `Environment "${environment}" not configured for workflow "${baseName}"`

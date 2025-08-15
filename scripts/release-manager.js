@@ -585,7 +585,7 @@ Merge the associated pull request to deploy to production.
                 description: workflow.description,
                 currentVersion: currentVersion || 'No releases',
                 suggestedVersion: suggestedVersion,
-                environments: workflow.environments
+                environments: ['dev', 'prod']
             };
         });
 

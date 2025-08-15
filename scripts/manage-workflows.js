@@ -45,12 +45,12 @@ class WorkflowManager {
 
         for (const workflow of this.managedWorkflows.managedWorkflows) {
             if (environment) {
-                if (workflow.environments.includes(environment)) {
+                if (['dev', 'prod'].includes(environment)) {
                     names.push(workflow.baseName + suffix);
                 }
             } else {
                 // Get all environments for this workflow
-                for (const env of workflow.environments) {
+                for (const env of ['dev', 'prod']) {
                     names.push(workflow.baseName + this.getSuffix(env));
                 }
             }
