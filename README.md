@@ -107,8 +107,7 @@ A comprehensive CI/CD solution for managing n8n workflows in a single Cloud inst
    ```json
    {
      "n8n": {
-       "baseUrl": "https://yourcompany.app.n8n.cloud",
-       "webhookUrl": "https://yourcompany.app.n8n.cloud/webhook"
+       "baseUrl": "https://yourcompany.app.n8n.cloud"
      },
      "settings": {
        "backupBeforeDeploy": true,
@@ -123,8 +122,7 @@ A comprehensive CI/CD solution for managing n8n workflows in a single Cloud inst
      "managedWorkflows": [
        {
          "baseName": "Customer Onboarding",
-         "description": "Automated welcome sequence",
-         "environments": ["dev", "prod"]
+         "description": "Automated welcome sequence"
        }
      ]
    }
@@ -151,7 +149,6 @@ The recommended workflow for daily development is to use GitHub Actions:
 3. **Review the exported workflows**
    - GitHub Action will export workflows and commit them to your repository
    - Review the changes in the commit
-   - An issue will be created with export details
 
 4. **Create a release candidate when ready**
    - Go to "Actions" tab
@@ -189,7 +186,6 @@ This project includes several GitHub Actions workflows to automate the CI/CD pro
 - Connects to your n8n instance
 - Exports the specified workflows (or all managed workflows)
 - Commits the exported files to your repository
-- Creates an issue with export details
 
 ### 2. Create Release Candidate
 
@@ -205,7 +201,6 @@ This project includes several GitHub Actions workflows to automate the CI/CD pro
 
 **What it does**:
 - Validates the workflow exists in development
-- Analyzes changes compared to production version
 - Creates a release tag and branch
 - Creates a pull request to the prod branch
 - Creates a GitHub release with changelog
@@ -263,21 +258,6 @@ To view your backups:
 
 > **Note:** For advanced users who prefer working with terminal commands, please refer to the [development.md](development.md) file.
 
-### Restoring from Backup
-
-#### For Emergency Situations (Production Issues)
-
-1. Go to **Actions** → **"Emergency Restore from Backup"**
-2. Click **"Run workflow"**
-3. Enter:
-   - **Backup name**: The name of the backup to restore from
-   - **Workflows**: Specific workflows to restore (optional)
-   - **Confirmation**: Type `CONFIRM`
-4. Click **"Run workflow"** button
-5. Wait for approval from emergency approvers
-
-> **Note:** For advanced users who prefer working with terminal commands, please refer to the [development.md](development.md) file.
-
 ### Backup Types
 
 | Type | Created By | Purpose |
@@ -285,7 +265,6 @@ To view your backups:
 | **Daily** | Scheduled GitHub Action | Regular automated backup |
 | **Pre-deploy** | Deploy workflow | Safety backup before deployment |
 | **Manual** | User-initiated | Before major changes |
-| **Emergency** | Before restore | Safety backup before restore |
 
 ### Backup Storage
 
@@ -319,15 +298,6 @@ There are two ways to deploy workflows to production:
    - Verify workflows in n8n Cloud UI
    - Manually activate workflows if needed
 
-#### Method 2: Direct Deployment
-
-For simpler changes, you can deploy directly:
-
-1. Go to n8n and make changes to your dev workflow
-2. Export the workflow using the "Commit development workflows" action
-3. Create a pull request directly to the prod branch
-4. Merge the pull request to trigger deployment
-
 > **Note:** For advanced users who prefer working with terminal commands, please refer to the [development.md](development.md) file.
 
 ### Post-Deployment Steps
@@ -339,8 +309,7 @@ After deploying to production:
    - Ensure connections are properly configured
 
 2. **Activate the Workflow**:
-   - Workflows are deployed inactive by default
-   - Manually activate when ready
+   - Manually activate the workflow if it is not already active
 
 3. **Monitor Executions**:
    - Watch the first few executions
@@ -380,16 +349,6 @@ After deploying to production:
 3. Check for environment-specific configurations
 4. Review n8n Cloud API limitations
 
-#### Backup Not Found
-
-**Symptoms**: Error message "Backup not found" during restore
-
-**Solutions**:
-1. Check the available backups in your GitHub repository
-2. Navigate to the `backups/` directory in your repository
-3. Verify the backup name format is correct
-4. Ensure the backup was created successfully
-
 ### Testing Connection
 
 To verify your connection to n8n:
@@ -403,9 +362,7 @@ To verify your connection to n8n:
 If you encounter issues not covered here:
 
 1. Check the [development.md](development.md) file for more detailed information
-2. Review GitHub Issues for similar problems
-3. Check n8n Community forums for n8n-specific questions
-4. Check the GitHub Action logs for detailed error information
+2. Check the GitHub Action logs for detailed error information
 
 ---
 
