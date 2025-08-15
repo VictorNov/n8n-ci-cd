@@ -362,8 +362,6 @@ npm run backup:list
 **Result**:
 - Creates automatic backup
 - Deploys dev workflows to prod versions
-- Workflows imported as INACTIVE (safety)
-- Slack notification sent
 
 #### 3. Create Production Backup
 **When to use**: Before major changes or on-demand
@@ -544,7 +542,6 @@ Found 2 difference(s):
     - Use when local restore isn't possible
     - Requires 2 emergency approver approvals
     - Creates automatic pre-restore backup
-    - All restored workflows are INACTIVE until manually activated
 
 #### Recovery Checklist
 

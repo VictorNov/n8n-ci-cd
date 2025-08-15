@@ -141,7 +141,6 @@ class InteractiveWorkflowSelector {
         console.log('===============================');
 
         console.log('⚠️  This will deploy development workflows to production.');
-        console.log('⚠️  Production workflows will be created/updated but remain INACTIVE.');
 
         const confirm = await this.askQuestion('\nDo you want to continue? (y/N): ');
         if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
@@ -346,7 +345,6 @@ class InteractiveWorkflowSelector {
         console.log(`Workflows: ${workflowsToRestore ? workflowsToRestore.join(', ') : 'All workflows in backup'}`);
         console.log('');
         console.log('⚠️  This will overwrite existing production workflows!');
-        console.log('⚠️  Restored workflows will be imported as INACTIVE for safety.');
 
         const confirm = await this.askQuestion('\nAre you sure you want to proceed? (y/N): ');
         if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {

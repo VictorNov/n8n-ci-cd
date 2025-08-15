@@ -123,17 +123,13 @@ jobs:
             ${{ steps.pr_body.outputs.WORKFLOW_CHANGES }}
             
             ### 🚨 Important Notes
-            - Merging this PR will trigger automatic production deployment
             - A backup will be created automatically before deployment
-            - Deployed workflow will be imported as INACTIVE for safety
-            - Manual activation required after deployment verification
             
             ### 🔄 Rollback Instructions
             If issues occur after deployment, use:
             ```bash
             npm run backup:restore [backup-name]
             ```
-            Or trigger the "Emergency Restore from Backup" GitHub Action.
           github_token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release

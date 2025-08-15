@@ -331,9 +331,6 @@ class DeploymentManager {
             summary += `Or use GitHub Actions: Emergency Restore workflow\n\n`;
         }
 
-        summary += `**⚠️ Important:** All deployed workflows are imported as INACTIVE for safety.\n`;
-        summary += `Please manually activate them in n8n after verification.\n\n`;
-
         // Add deployment results
         if (deploymentResults && deploymentResults.length > 0) {
             summary += `### Deployment Results\n`;
@@ -356,13 +353,6 @@ class DeploymentManager {
             }
             summary += `\n`;
         }
-
-        summary += `### Next Steps\n`;
-        summary += `1. Go to your n8n Cloud instance\n`;
-        summary += `2. Review the deployed workflows\n`;
-        summary += `3. Test workflows in inactive state\n`;
-        summary += `4. Manually activate workflows when ready\n`;
-        summary += `5. Monitor first few executions\n`;
 
         return summary;
     }
@@ -460,8 +450,6 @@ class DeploymentManager {
         notes += `- workflows/${workflowFile}\n\n`;
 
         notes += `### Important Notes\n`;
-        notes += `- Workflows imported as INACTIVE for safety\n`;
-        notes += `- Manual activation required after verification\n`;
         notes += `- Backup available for rollback if needed\n`;
 
         return notes;
