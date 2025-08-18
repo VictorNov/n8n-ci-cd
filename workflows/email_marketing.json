@@ -81,8 +81,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1920,
-        -920
+        -940,
+        -820
       ],
       "id": "config-1755167132137-3214",
       "name": "Configuration"
@@ -154,8 +154,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.9,
       "position": [
-        -1040,
-        -585
+        -2240,
+        -1240
       ],
       "id": "68e7da5e-12a0-4998-a2b6-fb1639ab5a91",
       "name": "AI Agent1"
@@ -167,8 +167,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1700,
-        -585
+        -1360,
+        -1120
       ],
       "id": "136ad2c1-c522-40fb-bc13-fe3d580d60d0",
       "name": "Configuration1"
@@ -180,8 +180,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1920,
-        -585
+        -840,
+        -620
       ],
       "id": "e140a6a3-7c0e-4311-bd44-d858d86e3d64",
       "name": "Code2"
@@ -230,6 +230,11 @@
             "node": "Configuration2",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "GitHub1",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -274,7 +279,13 @@
     },
     "Configuration2": {
       "main": [
-        []
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Code2": {
