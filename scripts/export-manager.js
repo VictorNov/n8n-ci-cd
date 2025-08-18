@@ -99,22 +99,11 @@ class ExportManager {
     }
 
     saveSummaryFiles(summaryData, environment) {
-        // Save to logs directory (for compatibility with existing code)
         const logsPath = path.join('logs', `_export_summary_${environment}.json`);
         fs.writeFileSync(logsPath, JSON.stringify(summaryData, null, 2));
 
-        // Save to workflows directory (for GitHub Actions)
-        const workflowsPath = path.join('workflows', `_export_summary_${environment}.json`);
-        fs.writeFileSync(workflowsPath, JSON.stringify(summaryData, null, 2));
-
-        // Save a general export summary
-        const generalPath = path.join('export-summary.json');
-        fs.writeFileSync(generalPath, JSON.stringify(summaryData, null, 2));
-
-        console.log(`📊 Export summary saved to multiple locations:`);
+        console.log(`📊 Export summary saved to logs:`);
         console.log(`   - ${logsPath}`);
-        console.log(`   - ${workflowsPath}`);
-        console.log(`   - ${generalPath}`);
     }
 
     generateMarkdownSummary(summaryData) {
