@@ -711,8 +711,12 @@ class WorkflowManager {
         console.log('✅ Backup cleanup completed');
     }
 
-    async importLocalWorkflows(environment, specificWorkflows = null) {
+    async importLocalWorkflows(environment, specificWorkflows = null, version = null) {
         console.log(`🔄 Importing local workflows to ${environment}...`);
+
+        if (version && environment === 'prod') {
+            console.log(`📌 Using version ${version} for workflow variables`);
+        }
 
         // Create backup before importing if enabled in settings
         if (this.config.settings.backupBeforeImport) {
@@ -761,7 +765,7 @@ class WorkflowManager {
 
         for (const workflowFile of filesToImport) {
             try {
-                const result = await this.importSingleWorkflow(exportDir, workflowFile, currentWorkflows, environment);
+                const result = await this.importSingleWorkflow(exportDir, workflowFile, currentWorkflows, environment, version);
                 importResults.push(result);
             } catch (error) {
                 console.error(`❌ Failed to import ${workflowFile}:`, error.message);
@@ -781,7 +785,7 @@ class WorkflowManager {
         return importResults;
     }
 
-    async importSingleWorkflow(exportDir, workflowFile, currentWorkflows, environment) {
+    async importSingleWorkflow(exportDir, workflowFile, currentWorkflows, environment, version = null) {
         const filePath = path.join(exportDir, workflowFile);
         const workflowData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
@@ -796,7 +800,7 @@ class WorkflowManager {
         }
 
         // Inject environment variables if available
-        this.injectEnvironmentVariables(workflowData, baseName, environment);
+        this.injectEnvironmentVariables(workflowData, baseName, environment, version);
 
         console.log(`🔄 Importing: ${targetName}`);
 
@@ -849,17 +853,33 @@ class WorkflowManager {
         return result;
     }
 
-    injectEnvironmentVariables(workflowData, baseName, environment) {
+    injectEnvironmentVariables(workflowData, baseName, environment, version = null) {
         // Find the workflow configuration in managed-workflows.json
         const workflowConfig = this.managedWorkflows.managedWorkflows.find(w => w.baseName === baseName);
 
+        let envVariables = {};
+
         // Check if workflow config exists and has variables for the specified environment
         if (!workflowConfig || !workflowConfig.variables || !workflowConfig.variables[environment]) {
-            return; // No variables to inject
-        }
+            // If no variables but we have a version, create a basic config
+            if (version && environment === 'prod') {
+                console.log(`🔧 No existing variables found, but injecting version for ${baseName}`);
+                envVariables = { version };
+            } else {
+                return; // No variables to inject
+            }
+        } else {
+            // Clone the environment variables
+            envVariables = { ...workflowConfig.variables[environment] };
 
-        const envVariables = workflowConfig.variables[environment];
-        console.log(`🔧 Injecting ${environment} variables for ${baseName}`);
+            // Add version if provided and we're in prod environment
+            if (version && environment === 'prod') {
+                envVariables.version = version;
+                console.log(`🔧 Injecting ${environment} variables with version ${version} for ${baseName}`);
+            } else {
+                console.log(`🔧 Injecting ${environment} variables for ${baseName}`);
+            }
+        }
 
         // Find the "Configuration" or "Variables" node in the workflow
         if (workflowData.nodes && Array.isArray(workflowData.nodes)) {

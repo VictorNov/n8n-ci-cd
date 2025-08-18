@@ -210,8 +210,11 @@ class DeploymentManager {
         }
     }
 
-    async deployWorkflows(workflowNames) {
+    async deployWorkflows(workflowNames, version = null) {
         console.log(`🚀 Deploying ${workflowNames.length} workflows to production`);
+        if (version) {
+            console.log(`📌 Using version ${version} for workflow variables`);
+        }
 
         const WorkflowManager = require('./manage-workflows.js');
         const manager = new WorkflowManager();
@@ -223,7 +226,7 @@ class DeploymentManager {
                 console.log(`🔄 Importing workflow: ${workflowName}`);
 
                 try {
-                    const result = await manager.importLocalWorkflows('prod', [workflowName]);
+                    const result = await manager.importLocalWorkflows('prod', [workflowName], version);
                     deploymentResults.push({
                         workflow: workflowName,
                         status: 'success',
@@ -311,7 +314,8 @@ class DeploymentManager {
             backupName,
             skipBackup,
             deploymentResults,
-            verificationResults
+            verificationResults,
+            version
         } = deploymentData;
 
         let summary = `## Production Deployment Summary\n\n`;
@@ -319,6 +323,9 @@ class DeploymentManager {
         summary += `**Deployed by:** ${deployedBy}\n`;
         summary += `**Date:** ${new Date().toUTCString()}\n`;
         summary += `**Commit:** ${commitSha}\n`;
+        if (version) {
+            summary += `**Version:** ${version}\n`;
+        }
         summary += `**Backup created:** ${!skipBackup ? 'Yes' : 'No'}\n`;
 
         if (!skipBackup && backupName) {
@@ -444,6 +451,9 @@ class DeploymentManager {
         notes += `**Deployment Status:** ✅ Successfully deployed to production\n`;
         notes += `**Deployed at:** ${new Date().toUTCString()}\n`;
         notes += `**Deployed by:** ${deploymentData.deployedBy}\n`;
+        if (deploymentData.version) {
+            notes += `**Version:** ${deploymentData.version}\n`;
+        }
         notes += `**Backup created:** ${deploymentData.backupName || 'No backup created'}\n\n`;
 
         notes += `### Files Deployed\n`;
@@ -533,6 +543,7 @@ if (require.main === module) {
                     const skipBackup = args[1] === 'true';
                     const deployedBy = args[2] || 'unknown';
                     const commitSha = args[3] || 'unknown';
+                    const version = args[4] || null;
 
                     if (deployWorkflows.length === 0) throw new Error('Workflow names required');
 
@@ -548,7 +559,7 @@ if (require.main === module) {
                     await deploymentManager.validateWorkflowsExist(deployWorkflows);
 
                     // Deploy workflows
-                    const deploymentResults = await deploymentManager.deployWorkflows(deployWorkflows);
+                    const deploymentResults = await deploymentManager.deployWorkflows(deployWorkflows, version);
 
                     // Verify deployment
                     const verificationResults = await deploymentManager.verifyDeployment(deployWorkflows);
@@ -561,7 +572,8 @@ if (require.main === module) {
                         backupName,
                         skipBackup,
                         deploymentResults,
-                        verificationResults
+                        verificationResults,
+                        version
                     };
 
                     deploymentManager.saveDeploymentSummary(deploymentData);
@@ -576,7 +588,7 @@ if (require.main === module) {
                     console.log('  validate <workflow1,workflow2,...>');
                     console.log('  deploy <workflow1,workflow2,...>');
                     console.log('  verify <workflow1,workflow2,...>');
-                    console.log('  full-deploy <workflow1,workflow2,...> [skip-backup] [deployed-by] [commit-sha]');
+                    console.log('  full-deploy <workflow1,workflow2,...> [skip-backup] [deployed-by] [commit-sha] [version]');
             }
         } catch (error) {
             console.error(`❌ Command failed: ${error.message}`);
