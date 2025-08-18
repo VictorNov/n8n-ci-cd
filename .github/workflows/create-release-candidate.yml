@@ -149,72 +149,107 @@ jobs:
           echo "rc_branch=$rc_branch" >> $GITHUB_OUTPUT
           echo "RC_BRANCH=$rc_branch" >> $GITHUB_ENV
 
-      - name: Prepare PR body
+      - name: Prepare PR body (file)
         id: pr_body
         run: |
+          WORKFLOW_CHANGES_CONTENT="No workflow changes file found."
           if [ -f "workflow_changes.md" ]; then
-            echo "WORKFLOW_CHANGES<<EOF" >> $GITHUB_OUTPUT
-            cat workflow_changes.md >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          else
-            echo "WORKFLOW_CHANGES=No workflow changes file found." >> $GITHUB_OUTPUT
+            WORKFLOW_CHANGES_CONTENT="$(cat workflow_changes.md)"
           fi
 
-      - name: Create pull request to prod
-        uses: repo-sync/pull-request@v2
-        with:
-          source_branch: ${{ env.RC_BRANCH }}
-          destination_branch: prod
-          pr_title: "🚀 Release ${{ steps.version.outputs.version }}: ${{ steps.setup.outputs.workflow_name }}"
-          pr_body: |
-            ## Release Candidate: ${{ steps.setup.outputs.workflow_name }} ${{ steps.version.outputs.version }}
-            
-            ### 📦 Release Metadata
-            ```yaml
-            workflow_name: ${{ steps.setup.outputs.workflow_name }}
-            workflow_prefix: ${{ steps.setup.outputs.workflow_prefix }}
-            workflow_filename: ${{ steps.setup.outputs.workflow_filename }}
-            workflow_file: ${{ steps.setup.outputs.workflow_file }}
-            version: ${{ steps.version.outputs.version }}
-            tag_name: ${{ env.TAG_NAME }}
-            ```
-            
-            **Created by:** ${{ github.actor }}
-            **Release Tag:** ${{ env.TAG_NAME }}
-            **Version:** ${{ steps.version.outputs.version }} ${{ github.event.inputs.version && '(manually specified)' || format('(auto-incremented {0})', github.event.inputs.version_increment) }}
-            
-            ### 📋 Pre-deployment Checklist
-            - [ ] Dev workflow has been tested thoroughly
-            - [ ] No critical issues identified
-            - [ ] Stakeholders have been notified
-            - [ ] Breaking changes documented
-            - [ ] Rollback plan confirmed
-            
-            ### 📊 Workflow Changes
-            
-            ${{ steps.pr_body.outputs.WORKFLOW_CHANGES }}
-            
-            ### 🚨 Important Notes
-            - Merging this PR will automatically deploy to production
-            - A backup will be created automatically before deployment
-            
-            ### 🔄 Rollback Instructions
-            If issues occur after deployment, use:
-            ```bash
-            npm run backup:restore [backup-name]
-            ```
-          github_token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
+          cat > pr_body.md <<'EOF'
+          ## Release Candidate: ${{ steps.setup.outputs.workflow_name }} ${{ steps.version.outputs.version }}
+          
+          ### 📦 Release Metadata
+          ```yaml
+          workflow_name: ${{ steps.setup.outputs.workflow_name }}
+          workflow_prefix: ${{ steps.setup.outputs.workflow_prefix }}
+          workflow_filename: ${{ steps.setup.outputs.workflow_filename }}
+          workflow_file: ${{ steps.setup.outputs.workflow_file }}
+          version: ${{ steps.version.outputs.version }}
           tag_name: ${{ env.TAG_NAME }}
-          release_name: "${{ steps.setup.outputs.workflow_name }} ${{ steps.version.outputs.version }}"
-          body_path: workflow_changes.md
-          draft: false
-          prerelease: false
+          ```
+          
+          **Created by:** ${{ github.actor }}
+          **Release Tag:** ${{ env.TAG_NAME }}
+          **Version:** ${{ steps.version.outputs.version }} ${{ github.event.inputs.version && '(manually specified)' || format('(auto-incremented {0})', github.event.inputs.version_increment) }}
+          
+          ### 📋 Pre-deployment Checklist
+          - [ ] Dev workflow has been tested thoroughly
+          - [ ] No critical issues identified
+          - [ ] Stakeholders have been notified
+          - [ ] Breaking changes documented
+          - [ ] Rollback plan confirmed
+          
+          ### 📊 Workflow Changes
+          EOF
+
+          # Append changes after heredoc to preserve ${{ }} expressions above
+          echo "" >> pr_body.md
+          echo "${WORKFLOW_CHANGES_CONTENT}" >> pr_body.md
+          echo "" >> pr_body.md
+
+          # Keep a copy for release notes fallbacks
+          cp pr_body.md pr_notes.md
+
+      - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          gh --version
+          gh auth status || true
+
+      - name: Create or update pull request to prod (gh)
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          BASE_BRANCH="prod"
+          HEAD_BRANCH="${RC_BRANCH}"
+
+          # Try to create PR, otherwise edit/update
+          if ! gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$HEAD_BRANCH" \
+              --title "🚀 Release ${{ steps.version.outputs.version }}: ${{ steps.setup.outputs.workflow_name }}" \
+              --body-file pr_body.md; then
+            echo "PR may already exist. Updating it…"
+            # Find existing PR and update title/body
+            PR_NUMBER=$(gh pr list --base "$BASE_BRANCH" --head "$HEAD_BRANCH" --state open --json number -q '.[0].number')
+            if [ -n "$PR_NUMBER" ]; then
+              gh pr edit "$PR_NUMBER" \
+                --title "🚀 Release ${{ steps.version.outputs.version }}: ${{ steps.setup.outputs.workflow_name }}" \
+                --body-file pr_body.md
+            else
+              echo "No existing open PR found; attempting reopen or create again."
+              gh pr create \
+                --base "$BASE_BRANCH" \
+                --head "$HEAD_BRANCH" \
+                --title "🚀 Release ${{ steps.version.outputs.version }}: ${{ steps.setup.outputs.workflow_name }}" \
+                --body-file pr_body.md
+            fi
+          fi
+
+      - name: Create GitHub Release (gh)
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Choose notes file: prefer workflow_changes.md if it exists, else pr_notes.md
+          NOTES_FILE="workflow_changes.md"
+          if [ ! -f "$NOTES_FILE" ]; then
+            NOTES_FILE="pr_notes.md"
+          fi
+
+          # Create release if it doesn't exist; otherwise update
+          if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "Release ${TAG_NAME} exists. Updating notes…"
+            gh release edit "${TAG_NAME}" --notes-file "$NOTES_FILE" --title "${{ steps.setup.outputs.workflow_name }} ${{ steps.version.outputs.version }}"
+          else
+            echo "Creating release ${TAG_NAME}…"
+            gh release create "${TAG_NAME}" \
+              --title "${{ steps.setup.outputs.workflow_name }} ${{ steps.version.outputs.version }}" \
+              --notes-file "$NOTES_FILE"
+          fi
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -222,5 +257,7 @@ jobs:
           name: release-candidate-${{ steps.setup.outputs.workflow_name }}-${{ steps.version.outputs.version }}
           path: |
             workflow_changes.md
+            pr_body.md
+            pr_notes.md
             RELEASE_INFO_*.md
             workflows/${{ steps.setup.outputs.workflow_file }}
