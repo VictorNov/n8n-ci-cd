@@ -44,62 +44,69 @@ jobs:
           # Get the list of changed files in the workflows directory
           changed_workflow_files=$(git diff --name-only HEAD~1 HEAD -- workflows/*.json 2>/dev/null || echo "")
           
-          if [[ -z "$changed_workflow_files" ]]; then
+          workflows=""
+          workflow_count=0
+          
+          # Method 1: Check for changed workflow files
+          if [[ -n "$changed_workflow_files" ]]; then
+            echo "📂 Changed workflow files:"
+            echo "$changed_workflow_files"
+          
+            # Convert file paths to workflow names
+            while IFS= read -r file; do
+              if [[ -n "$file" && "$file" =~ ^workflows/(.+)\.json$ ]]; then
+                # Extract filename without extension
+                filename="${BASH_REMATCH[1]}"
+          
+                # Convert filename to readable workflow name
+                # Replace underscores with spaces and capitalize words
+                workflow_name=$(echo "$filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
+          
+                if [[ -n "$workflows" ]]; then
+                  workflows="$workflows,$workflow_name"
+                else
+                  workflows="$workflow_name"
+                fi
+          
+                workflow_count=$((workflow_count + 1))
+                echo "✅ Found workflow: $workflow_name (from $file)"
+              fi
+            done <<< "$changed_workflow_files"
+          fi
+          
+          # Method 2: Fallback to first workflow in directory
+          if [[ -z "$workflows" ]]; then
             echo "⚠️ No workflow files changed in this commit"
-            echo "Checking if workflows directory exists..."
+            echo "🔄 Falling back to first workflow in workflows directory..."
           
             if [[ ! -d "workflows" ]]; then
               echo "❌ workflows directory does not exist"
               exit 1
             fi
           
-            # List available workflow files for debugging
-            echo "Available workflow files:"
-            ls -la workflows/*.json 2>/dev/null || echo "No .json files found in workflows directory"
-          fi
+            # Get the first workflow file (alphabetically)
+            first_workflow_file=$(ls workflows/*.json 2>/dev/null | head -n1)
           
-          echo "📂 Changed workflow files:"
-          echo "$changed_workflow_files"
-          
-          # Convert file paths to workflow names
-          workflows=""
-          workflow_count=0
-          
-          while IFS= read -r file; do
-            if [[ -n "$file" && "$file" =~ ^workflows/(.+)\.json$ ]]; then
-              # Extract filename without extension
-              filename="${BASH_REMATCH[1]}"
-          
-              # Convert filename to readable workflow name
-              # Replace underscores with spaces and capitalize words
-              workflow_name=$(echo "$filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
-          
-              if [[ -n "$workflows" ]]; then
-                workflows="$workflows,$workflow_name"
-              else
-                workflows="$workflow_name"
-              fi
-          
-              workflow_count=$((workflow_count + 1))
-              echo "✅ Found workflow: $workflow_name (from $file)"
+            if [[ -z "$first_workflow_file" ]]; then
+              echo "❌ No .json files found in workflows directory"
+              exit 1
             fi
-          done <<< "$changed_workflow_files"
           
-          if [[ -z "$workflows" ]]; then
-            echo "❌ No valid workflow files detected"
-            exit 1
+            echo "📁 Available workflow files:"
+            ls -la workflows/*.json 2>/dev/null
+          
+            # Extract filename and convert to workflow name
+            filename=$(basename "$first_workflow_file" .json)
+            workflow_name=$(echo "$filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
+          
+            workflows="$workflow_name"
+            workflow_count=1
+          
+            echo "✅ Using fallback workflow: $workflow_name (from $first_workflow_file)"
           fi
           
           echo "workflows=$workflows" >> $GITHUB_OUTPUT
           echo "🎯 Detected $workflow_count workflow(s) to deploy: $workflows"
-          
-          # Also detect the version from commit message or tags
-          commit_message=$(git log -1 --pretty=format:"%s")
-          if [[ "$commit_message" =~ 🚀\ Release\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            version="${BASH_REMATCH[1]}"
-            echo "version=$version" >> $GITHUB_OUTPUT
-            echo "📝 Detected version: $version"
-          fi
 
       - name: Validate workflow files exist
         run: |
