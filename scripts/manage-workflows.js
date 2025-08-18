@@ -1034,28 +1034,6 @@ class WorkflowManager {
             // Add the sticky note to the workflow
             workflowData.nodes.push(versionNote);
         }
-
-        // Also update the workflow name to include version if in production
-        if (environment === 'prod' && workflowData.name) {
-            // Remove any existing version suffix first
-            const baseWorkflowName = workflowData.name.replace(/\s+v\d+\.\d+\.\d+$/, '');
-
-            // Add the new version
-            workflowData.name = `${baseWorkflowName} v${version}`;
-            console.log(`📝 Updated workflow name to: ${workflowData.name}`);
-        }
-
-        // Add version to workflow metadata if it exists
-        if (!workflowData.meta) {
-            workflowData.meta = {};
-        }
-
-        workflowData.meta.version = version;
-        workflowData.meta.environment = environment;
-        workflowData.meta.lastDeployed = new Date().toISOString();
-        workflowData.meta.managedWorkflow = true;
-
-        console.log(`✅ Added version ${version} metadata to workflow`);
     }
 
     createImportSummary(results, environment) {
