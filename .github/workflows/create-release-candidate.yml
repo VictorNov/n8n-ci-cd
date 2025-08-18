@@ -167,15 +167,17 @@ jobs:
           destination_branch: prod
           pr_title: "🚀 Release ${{ steps.version.outputs.version }}: ${{ steps.setup.outputs.workflow_name }}"
           pr_body: |
-            <!-- RELEASE_METADATA
+            ## Release Candidate: ${{ steps.setup.outputs.workflow_name }} ${{ steps.version.outputs.version }}
+            
+            ### 📦 Release Metadata
+            ```yaml
             workflow_name: ${{ steps.setup.outputs.workflow_name }}
             workflow_prefix: ${{ steps.setup.outputs.workflow_prefix }}
             workflow_filename: ${{ steps.setup.outputs.workflow_filename }}
             workflow_file: ${{ steps.setup.outputs.workflow_file }}
             version: ${{ steps.version.outputs.version }}
             tag_name: ${{ env.TAG_NAME }}
-            -->
-            ## Release Candidate: ${{ steps.setup.outputs.workflow_name }} ${{ steps.version.outputs.version }}
+            ```
             
             **Created by:** ${{ github.actor }}
             **Release Tag:** ${{ env.TAG_NAME }}
