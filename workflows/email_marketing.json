@@ -230,6 +230,11 @@
             "node": "Configuration2",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "GitHub1",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -274,7 +279,13 @@
     },
     "Configuration2": {
       "main": [
-        []
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Code2": {
