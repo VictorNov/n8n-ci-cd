@@ -883,7 +883,7 @@ class WorkflowManager {
 
         // Find the "Configuration" or "Variables" node in the workflow
         if (workflowData.nodes && Array.isArray(workflowData.nodes)) {
-            let configNode = workflowData.nodes.find(node => 
+            let configNode = workflowData.nodes.find(node =>
                 node.name === 'Configuration' || node.name === 'Variables'
             );
 
@@ -913,9 +913,9 @@ class WorkflowManager {
                 workflowData.nodes.push(configNode);
 
                 // If there's a trigger node, connect the Configuration node after it
-                const triggerNode = workflowData.nodes.find(node => 
-                    node.type.includes('Trigger') || 
-                    node.name.includes('Trigger') || 
+                const triggerNode = workflowData.nodes.find(node =>
+                    node.type.includes('Trigger') ||
+                    node.name.includes('Trigger') ||
                     node.name.includes('When')
                 );
 
@@ -967,7 +967,95 @@ class WorkflowManager {
 
                 console.log(`✅ Replaced ${nodeName} with a Code node and updated with ${environment} variables`);
             }
+
+            // Add or update Sticky Note with version information if version is provided
+            if (version) {
+                this.addOrUpdateVersionStickyNote(workflowData, baseName, version, environment, configNode);
+            }
         }
+    }
+
+    // Helper method to add or update version sticky note
+    addOrUpdateVersionStickyNote(workflowData, baseName, version, environment, configNode) {
+        // Look for existing version sticky note
+        let versionNote = workflowData.nodes.find(node =>
+            node.type === 'n8n-nodes-base.stickyNote' &&
+            (node.name === 'Version Info' || node.parameters?.content?.includes('Version:'))
+        );
+
+        const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        const noteContent = `📦 **${baseName}**\n\n` +
+            `**Version:** ${version}\n` +
+            `**Environment:** ${environment}\n` +
+            `**Deployed:** ${currentDate}\n\n` +
+            `This workflow is managed by the release system.\n` +
+            `Version is automatically injected during deployment.`;
+
+        if (versionNote) {
+            // Update existing sticky note
+            console.log(`📝 Updating existing Version Info sticky note with version ${version}`);
+            versionNote.parameters.content = noteContent;
+
+            // Update color to indicate production deployment
+            if (environment === 'prod') {
+                versionNote.parameters.color = 3; // Green color for production
+            }
+        } else {
+            // Create new sticky note
+            console.log(`📝 Creating new Version Info sticky note with version ${version}`);
+
+            // Generate a unique ID for the sticky note
+            const noteId = `sticky-version-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+            // Position the sticky note near the Configuration node
+            let notePosition = [-900, -200]; // Default position
+            if (configNode && configNode.position) {
+                // Place it above and to the left of the Configuration node
+                notePosition = [
+                    configNode.position[0] - 180,
+                    configNode.position[1] - 120
+                ];
+            }
+
+            versionNote = {
+                parameters: {
+                    content: noteContent,
+                    height: 260,
+                    width: 280,
+                    color: environment === 'prod' ? 3 : 5 // Green for prod, yellow for other
+                },
+                type: "n8n-nodes-base.stickyNote",
+                typeVersion: 1,
+                position: notePosition,
+                id: noteId,
+                name: "Version Info"
+            };
+
+            // Add the sticky note to the workflow
+            workflowData.nodes.push(versionNote);
+        }
+
+        // Also update the workflow name to include version if in production
+        if (environment === 'prod' && workflowData.name) {
+            // Remove any existing version suffix first
+            const baseWorkflowName = workflowData.name.replace(/\s+v\d+\.\d+\.\d+$/, '');
+
+            // Add the new version
+            workflowData.name = `${baseWorkflowName} v${version}`;
+            console.log(`📝 Updated workflow name to: ${workflowData.name}`);
+        }
+
+        // Add version to workflow metadata if it exists
+        if (!workflowData.meta) {
+            workflowData.meta = {};
+        }
+
+        workflowData.meta.version = version;
+        workflowData.meta.environment = environment;
+        workflowData.meta.lastDeployed = new Date().toISOString();
+        workflowData.meta.managedWorkflow = true;
+
+        console.log(`✅ Added version ${version} metadata to workflow`);
     }
 
     createImportSummary(results, environment) {
