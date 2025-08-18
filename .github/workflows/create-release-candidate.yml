@@ -13,8 +13,8 @@ on:
           Workflow base name for release candidate (e.g., "My Workflow").:
         required: true
       version:
-        description: 'Release version (e.g., "1.0.0")'
-        required: true
+        description: 'Release version (e.g., "1.0.0"). Leave empty to auto-increment minor version'
+        required: false
 
 jobs:
   create-release-candidate:
@@ -37,24 +37,57 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Determine release version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            # Use provided version
+            version="${{ github.event.inputs.version }}"
+            echo "🏷️ Using provided version: $version"
+          else
+            # Auto-increment minor version
+            echo "🔍 Auto-incrementing minor version..."
+          
+            # Get the latest tag for this workflow
+            workflow_prefix=$(echo "${{ github.event.inputs.workflow_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
+            latest_tag=$(git tag -l "${workflow_prefix}-v*" --sort=-version:refname | head -n1)
+          
+            if [ -z "$latest_tag" ]; then
+              # No previous tags, start with 1.0.0
+              version="1.0.0"
+              echo "🆕 No previous tags found, starting with: $version"
+            else
+              # Extract version from tag (remove workflow prefix and 'v')
+              current_version=$(echo "$latest_tag" | sed "s/${workflow_prefix}-v//")
+              echo "📊 Current version: $current_version"
+          
+              # Parse semantic version
+              if [[ $current_version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+                major=${BASH_REMATCH[1]}
+                minor=${BASH_REMATCH[2]}
+                patch=${BASH_REMATCH[3]}
+          
+                # Increment minor version, reset patch to 0
+                new_minor=$((minor + 1))
+                version="${major}.${new_minor}.0"
+                echo "⬆️ Auto-incremented to: $version"
+              else
+                # Fallback if version format is unexpected
+                version="1.0.0"
+                echo "⚠️ Unexpected version format, defaulting to: $version"
+              fi
+            fi
+          fi
+          
+          echo "RELEASE_VERSION=$version" >> $GITHUB_ENV
+          echo "version=$version" >> $GITHUB_OUTPUT
+
       - name: Install dependencies
         run: npm install
 
       - name: Inject API key into existing config
         run: |
           jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
-
-      - name: Validate and export workflow
-        run: |
-          echo "🔍 Validating and exporting workflow"
-          node scripts/release-manager.js validate "${{ github.event.inputs.workflow_name }}"
-          node scripts/release-manager.js export "${{ github.event.inputs.workflow_name }}"
-
-      - name: Clean working directory
-        run: |
-          echo "🧹 Cleaning working directory"
-          git stash push -m "Auto-stash for release workflow" || true
-          git fetch origin
 
       - name: Ensure prod branch exists
         run: |
@@ -65,7 +98,7 @@ jobs:
         id: analyze
         run: |
           echo "🔍 Analyzing workflow changes"
-          node scripts/release-manager.js analyze "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}"
+          node scripts/release-manager.js analyze "${{ github.event.inputs.workflow_name }}" "${{ env.RELEASE_VERSION }}"
           
           # Get the workflow filename - simple fallback approach
           echo "🔍 Setting workflow filename..."
@@ -76,13 +109,13 @@ jobs:
       - name: Create release tag
         run: |
           echo "🏷️ Creating release tag"
-          tag_name=$(node scripts/release-manager.js create-tag "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}")
+          tag_name=$(node scripts/release-manager.js create-tag "${{ github.event.inputs.workflow_name }}" "${{ env.RELEASE_VERSION }}")
           echo "TAG_NAME=$tag_name" >> $GITHUB_ENV
 
       - name: Create release candidate branch
         run: |
           echo "🌿 Creating release candidate branch"
-          rc_branch=$(node scripts/release-manager.js create-branch "${{ github.event.inputs.workflow_name }}" "${{ github.event.inputs.version }}")
+          rc_branch=$(node scripts/release-manager.js create-branch "${{ github.event.inputs.workflow_name }}" "${{ env.RELEASE_VERSION }}")
           echo "RC_BRANCH=$rc_branch" >> $GITHUB_ENV
 
       - name: Prepare PR body
@@ -104,12 +137,13 @@ jobs:
         with:
           source_branch: ${{ env.RC_BRANCH }}
           destination_branch: prod
-          pr_title: "🚀 Release ${{ github.event.inputs.version }}: ${{ github.event.inputs.workflow_name }}"
+          pr_title: "🚀 Release ${{ env.RELEASE_VERSION }}: ${{ github.event.inputs.workflow_name }}"
           pr_body: |
-            ## Release Candidate: ${{ github.event.inputs.workflow_name }} ${{ github.event.inputs.version }}
+            ## Release Candidate: ${{ github.event.inputs.workflow_name }} ${{ env.RELEASE_VERSION }}
             
             **Created by:** ${{ github.actor }}
             **Release Tag:** ${{ env.TAG_NAME }}
+            **Version:** ${{ env.RELEASE_VERSION }} ${{ github.event.inputs.version && '(manually specified)' || '(auto-incremented)' }}
             
             ### 📋 Pre-deployment Checklist
             - [ ] Dev workflow has been tested thoroughly
@@ -138,7 +172,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.TAG_NAME }}
-          release_name: "${{ github.event.inputs.workflow_name }} ${{ github.event.inputs.version }}"
+          release_name: "${{ github.event.inputs.workflow_name }} ${{ env.RELEASE_VERSION }}"
           body_path: workflow_changes.md
           draft: false
           prerelease: false
@@ -146,7 +180,7 @@ jobs:
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-candidate-${{ github.event.inputs.workflow_name }}-${{ github.event.inputs.version }}
+          name: release-candidate-${{ github.event.inputs.workflow_name }}-${{ env.RELEASE_VERSION }}
           path: |
             workflow_changes.md
             RELEASE_INFO_*.md

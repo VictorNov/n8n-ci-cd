@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need at least 2 commits to compare changes
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,72 +33,45 @@ jobs:
         run: |
           jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
 
-      - name: Detect workflows to deploy
+      - name: Detect workflows to deploy from commit changes
         id: detect_workflows
         run: |
-          echo "🔍 Detecting workflows to deploy from PR title"
+          echo "🔍 Detecting workflows to deploy from commit changes"
           
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            # Method 1: Try to get the actual PR that was merged
-            commit_sha="${{ github.sha }}"
-            echo "Looking for PR associated with commit: $commit_sha"
+          commit_sha="${{ github.sha }}"
+          echo "Analyzing changes in commit: $commit_sha"
           
-            # Use GitHub CLI to find the PR
-            pr_info=$(gh pr list --state merged --limit 50 --json number,title,mergeCommit | \
-                     jq -r ".[] | select(.mergeCommit.oid == \"$commit_sha\") | .title" 2>/dev/null || echo "")
+          # Get the list of changed files in the workflows directory
+          changed_workflow_files=$(git diff --name-only HEAD~1 HEAD -- workflows/*.json 2>/dev/null || echo "")
           
-            if [[ -n "$pr_info" ]]; then
-              echo "Found PR title: $pr_info"
+          if [[ -z "$changed_workflow_files" ]]; then
+            echo "⚠️ No workflow files changed in this commit"
+            echo "Checking if workflows directory exists..."
           
-              # Extract workflow name from PR title pattern: "🚀 Release X.X.X: Workflow Name"
-              if [[ "$pr_info" =~ 🚀\ Release\ [^:]+:\ (.+) ]]; then
-                workflow_name="${BASH_REMATCH[1]}"
-                echo "workflows=$workflow_name" >> $GITHUB_OUTPUT
-                echo "✅ Detected workflow from PR title: $workflow_name"
-                exit 0
-              fi
-            fi
-          
-            # Method 2: Try commit message
-            commit_message=$(git log -1 --pretty=format:"%s")
-            echo "Commit message: $commit_message"
-          
-            # Look for pattern like "🚀 Release X.X.X: Workflow Name"
-            if [[ "$commit_message" =~ 🚀\ Release\ [^:]+:\ (.+) ]]; then
-              workflow_name="${BASH_REMATCH[1]}"
-              echo "workflows=$workflow_name" >> $GITHUB_OUTPUT
-              echo "✅ Detected workflow from commit: $workflow_name"
-              exit 0
-            fi
-          
-            # Method 3: Look for merge commit pattern
-            if [[ "$commit_message" =~ Merge\ pull\ request.*🚀\ Release\ [^:]+:\ (.+) ]]; then
-              workflow_name="${BASH_REMATCH[1]}"
-              echo "workflows=$workflow_name" >> $GITHUB_OUTPUT
-              echo "✅ Detected workflow from PR merge: $workflow_name"
-              exit 0
-            fi
-          
-            echo "❌ Could not detect workflow from PR title or commit message"
-            echo "Expected patterns:"
-            echo "- PR title: '🚀 Release X.X.X: Workflow Name'"
-            echo "- Commit: '🚀 Release X.X.X: Workflow Name'"
-            echo "- Merge: 'Merge pull request ... 🚀 Release X.X.X: Workflow Name'"
-            echo ""
-            echo "🔄 Falling back to scanning all workflows"
-          
-            # Method 4: Fallback - scan for workflow files
-            workflow_files=$(find workflows -name "*.json" -type f ! -name "_*" 2>/dev/null | head -5)
-          
-            if [[ -z "$workflow_files" ]]; then
-              echo "❌ No workflow files found in workflows directory"
-              ls -la workflows/ 2>/dev/null || echo "workflows directory does not exist"
+            if [[ ! -d "workflows" ]]; then
+              echo "❌ workflows directory does not exist"
               exit 1
             fi
           
-            workflows=""
-            for file in $workflow_files; do
-              filename=$(basename "$file" .json)
+            # List available workflow files for debugging
+            echo "Available workflow files:"
+            ls -la workflows/*.json 2>/dev/null || echo "No .json files found in workflows directory"
+          fi
+          
+          echo "📂 Changed workflow files:"
+          echo "$changed_workflow_files"
+          
+          # Convert file paths to workflow names
+          workflows=""
+          workflow_count=0
+          
+          while IFS= read -r file; do
+            if [[ -n "$file" && "$file" =~ ^workflows/(.+)\.json$ ]]; then
+              # Extract filename without extension
+              filename="${BASH_REMATCH[1]}"
+          
+              # Convert filename to readable workflow name
+              # Replace underscores with spaces and capitalize words
               workflow_name=$(echo "$filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
           
               if [[ -n "$workflows" ]]; then
@@ -104,18 +79,58 @@ jobs:
               else
                 workflows="$workflow_name"
               fi
-              echo "Found: $workflow_name (from $file)"
-            done
           
-            echo "workflows=$workflows" >> $GITHUB_OUTPUT
-            echo "⚠️ Using fallback detection: $workflows"
+              workflow_count=$((workflow_count + 1))
+              echo "✅ Found workflow: $workflow_name (from $file)"
+            fi
+          done <<< "$changed_workflow_files"
           
-          else
-            echo "❌ Not a push event, cannot detect workflows"
+          if [[ -z "$workflows" ]]; then
+            echo "❌ No valid workflow files detected"
             exit 1
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+          echo "workflows=$workflows" >> $GITHUB_OUTPUT
+          echo "🎯 Detected $workflow_count workflow(s) to deploy: $workflows"
+          
+          # Also detect the version from commit message or tags
+          commit_message=$(git log -1 --pretty=format:"%s")
+          if [[ "$commit_message" =~ 🚀\ Release\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            version="${BASH_REMATCH[1]}"
+            echo "version=$version" >> $GITHUB_OUTPUT
+            echo "📝 Detected version: $version"
+          fi
+
+      - name: Validate workflow files exist
+        run: |
+          echo "🔍 Validating workflow files exist and are readable"
+          
+          IFS=',' read -ra WORKFLOWS <<< "${{ steps.detect_workflows.outputs.workflows }}"
+          
+          for workflow in "${WORKFLOWS[@]}"; do
+            workflow=$(echo "$workflow" | xargs)  # Trim whitespace
+          
+            # Convert workflow name back to filename
+            filename=$(echo "$workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
+            filepath="workflows/${filename}.json"
+          
+            echo "Checking: $workflow -> $filepath"
+          
+            if [[ ! -f "$filepath" ]]; then
+              echo "❌ Workflow file not found: $filepath"
+              echo "Available files in workflows directory:"
+              ls -la workflows/ 2>/dev/null || echo "workflows directory not accessible"
+              exit 1
+            fi
+          
+            # Validate JSON format
+            if ! jq empty "$filepath" 2>/dev/null; then
+              echo "❌ Invalid JSON format in: $filepath"
+              exit 1
+            fi
+          
+            echo "✅ Validated: $filepath"
+          done
 
       - name: Run full deployment
         run: |
@@ -123,41 +138,82 @@ jobs:
           
           node scripts/deployment-manager.js full-deploy \
             "${{ steps.detect_workflows.outputs.workflows }}" \
-            "${{ github.event.inputs.skip_backup }}" \
+            "false" \
             "${{ github.actor }}" \
             "${{ github.sha }}"
 
       - name: Update releases with deployment status
-        if: github.event_name == 'push'
+        if: success()
         run: |
           echo "🏷️ Updating releases with deployment status"
           
-          # This would use gh CLI in actual GitHub Actions
           IFS=',' read -ra WORKFLOWS <<< "${{ steps.detect_workflows.outputs.workflows }}"
           
           for workflow in "${WORKFLOWS[@]}"; do
-            workflow=$(echo "$workflow" | xargs)
-            echo "Updating release for: $workflow"
+            workflow=$(echo "$workflow" | xargs)  # Trim whitespace
+            echo "Processing deployment status for: $workflow"
           
-            # Find latest tag and update (simplified for demo)
-            latest_tag=$(git tag -l "${workflow}-*" | sort -V | tail -n1)
+            # Convert workflow name to tag format
+            tag_prefix=$(echo "$workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
+          
+            # Find the latest tag for this workflow
+            latest_tag=$(git tag -l "${tag_prefix}-v*" --sort=-version:refname | head -n1)
+          
             if [[ -n "$latest_tag" ]]; then
-              echo "Would update release: $latest_tag"
+              echo "📋 Found release tag: $latest_tag"
+          
+              # Update release notes with deployment info (using gh CLI)
+              current_time=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+              deployment_note="
+          
+              ## 🚀 Deployment Status
+              - **Deployed to Production**: $current_time
+              - **Commit**: ${{ github.sha }}
+              - **Deployed by**: ${{ github.actor }}
+              - **Status**: ✅ Successfully deployed"
+          
+              # Note: In real usage, you might want to update the release
+              echo "Would update release $latest_tag with deployment info"
+              # gh release edit "$latest_tag" --notes-file <(echo "$deployment_note") || true
+            else
+              echo "⚠️ No release tag found for workflow: $workflow"
             fi
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit deployment artifacts
+      - name: Create deployment summary
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          echo "📊 Creating deployment summary"
           
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git add workflows/backups/ backups/ logs/ || true
-            git commit -m "deploy: ${{ steps.detect_workflows.outputs.workflows }} to production" || true
-            git push || true
-          fi
+          cat > deployment-summary.md << EOF
+          # Production Deployment Summary
+          
+          **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Commit**: ${{ github.sha }}
+          **Triggered by**: ${{ github.actor }}
+          **Workflows Deployed**: ${{ steps.detect_workflows.outputs.workflows }}
+          
+          ## Deployed Workflows
+          EOF
+          
+          IFS=',' read -ra WORKFLOWS <<< "${{ steps.detect_workflows.outputs.workflows }}"
+          
+          for workflow in "${WORKFLOWS[@]}"; do
+            workflow=$(echo "$workflow" | xargs)
+            filename=$(echo "$workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
+          
+            echo "- **$workflow** (workflows/${filename}.json)" >> deployment-summary.md
+          done
+          
+          echo "" >> deployment-summary.md
+          echo "## Deployment Details" >> deployment-summary.md
+          echo "- Repository: ${{ github.repository }}" >> deployment-summary.md
+          echo "- Branch: ${{ github.ref_name }}" >> deployment-summary.md
+          echo "- Run ID: ${{ github.run_id }}" >> deployment-summary.md
+          
+          echo "📄 Deployment summary created"
+          cat deployment-summary.md
 
       - name: Upload deployment artifacts
         uses: actions/upload-artifact@v4
@@ -169,3 +225,10 @@ jobs:
             logs/
             deployment-summary.md
           retention-days: 90
+
+      - name: Notify deployment completion
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo "Workflows deployed: ${{ steps.detect_workflows.outputs.workflows }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Deployed by: ${{ github.actor }}"
