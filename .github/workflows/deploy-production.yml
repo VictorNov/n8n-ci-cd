@@ -116,7 +116,19 @@ jobs:
             tag_prefix=$(echo "$first_workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
 
             # Find the latest tag for this workflow
-            latest_tag=$(git tag -l "${tag_prefix}-*" --sort=-version:refname | head -n1)
+            echo "🔍 Looking for tags with prefix: ${tag_prefix}"
+
+            # List all tags for debugging
+            echo "📋 All existing tags:"
+            git tag -l | sort -V || echo "No tags found"
+
+            # Try different patterns to find the tag
+            latest_tag=$(git tag -l | grep "^${tag_prefix}" | sort -V | tail -n1)
+
+            if [[ -z "$latest_tag" ]]; then
+              # Try alternative pattern with hyphen
+              latest_tag=$(git tag -l | grep "^${tag_prefix}-" | sort -V | tail -n1)
+            fi
 
             if [[ -n "$latest_tag" ]]; then
               echo "📋 Found latest tag: $latest_tag"
@@ -192,11 +204,20 @@ jobs:
             workflow=$(echo "$workflow" | xargs)  # Trim whitespace
             echo "Processing deployment status for: $workflow"
 
-            # Convert workflow name to tag format
-            tag_prefix=$(echo "$workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
+            # Convert workflow name to tag format (using hyphens for consistency)
+            tag_prefix=$(echo "$workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
 
-            # Find the latest tag for this workflow
-            latest_tag=$(git tag -l "${tag_prefix}-v*" --sort=-version:refname | head -n1)
+            # List all tags for debugging
+            echo "📋 All existing tags for ${workflow}:"
+            git tag -l | grep "${tag_prefix}" || echo "No matching tags found"
+
+            # Find the latest tag for this workflow (try multiple patterns)
+            latest_tag=$(git tag -l | grep "^${tag_prefix}" | sort -V | tail -n1)
+
+            if [[ -z "$latest_tag" ]]; then
+              # Try alternative pattern with hyphen
+              latest_tag=$(git tag -l | grep "^${tag_prefix}-" | sort -V | tail -n1)
+            fi
 
             if [[ -n "$latest_tag" ]]; then
               echo "📋 Found release tag: $latest_tag"
