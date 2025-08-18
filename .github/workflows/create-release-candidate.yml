@@ -13,8 +13,17 @@ on:
           Workflow base name for release candidate (e.g., "My Workflow").:
         required: true
       version:
-        description: 'Release version (e.g., "1.0.0"). Leave empty to auto-increment minor version'
+        description: 'Release version (e.g., "1.0.0"). Leave empty to auto-increment'
         required: false
+      version_increment:
+        description: 'Version increment type when auto-incrementing'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
   create-release-candidate:
@@ -77,10 +86,24 @@ jobs:
                 minor=${BASH_REMATCH[2]}
                 patch=${BASH_REMATCH[3]}
           
-                # Increment minor version, reset patch to 0
-                new_minor=$((minor + 1))
-                version="${major}.${new_minor}.0"
-                echo "⬆️ Auto-incremented to: $version"
+                # Increment based on user choice
+                case "$increment_type" in
+                  "major")
+                    new_major=$((major + 1))
+                    version="${new_major}.0.0"
+                    echo "⬆️ Incremented major version to: $version"
+                    ;;
+                  "minor")
+                    new_minor=$((minor + 1))
+                    version="${major}.${new_minor}.0"
+                    echo "⬆️ Incremented minor version to: $version"
+                    ;;
+                  "patch"|*)
+                    new_patch=$((patch + 1))
+                    version="${major}.${minor}.${new_patch}"
+                    echo "⬆️ Incremented patch version to: $version"
+                    ;;
+                esac
               else
                 # Fallback if version format is unexpected
                 version="1.0.0"
@@ -153,7 +176,7 @@ jobs:
             
             **Created by:** ${{ github.actor }}
             **Release Tag:** ${{ env.TAG_NAME }}
-            **Version:** ${{ env.RELEASE_VERSION }} ${{ github.event.inputs.version && '(manually specified)' || '(auto-incremented)' }}
+            **Version:** ${{ env.RELEASE_VERSION }} ${{ github.event.inputs.version && '(manually specified)' || format('(auto-incremented {0})', github.event.inputs.version_increment) }}
             
             ### 📋 Pre-deployment Checklist
             - [ ] Dev workflow has been tested thoroughly
@@ -174,7 +197,7 @@ jobs:
             ```bash
             npm run backup:restore [backup-name]
             ```
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
