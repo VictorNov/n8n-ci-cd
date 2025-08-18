@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-18T15:01:26.148Z",
+  "timestamp": "2025-08-18T15:08:49.624Z",
   "environment": "dev",
   "success": true,
   "exportType": "all",
@@ -14,7 +14,7 @@
       "fileName": "email_marketing.json",
       "status": "success",
       "active": false,
-      "nodeCount": 10
+      "nodeCount": 11
     }
   ],
   "failedWorkflows": [],
@@ -23,7 +23,7 @@
       "name": "Email Marketing-dev",
       "baseName": "Email Marketing",
       "fileName": "email_marketing.json",
-      "nodeCount": 10
+      "nodeCount": 11
     }
   ]
 }

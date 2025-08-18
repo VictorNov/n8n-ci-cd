@@ -198,6 +198,22 @@
       ],
       "id": "afb7f388-3937-4b7d-b4ef-440846a427ba",
       "name": "Configuration2"
+    },
+    {
+      "parameters": {
+        "content": "📦 **Email Marketing**\n\n**Version:** 2.0.0\n**Environment:** prod\n**Deployed:** 2025-08-18\n\nThis workflow is managed by the release system.\nVersion is automatically injected during deployment.",
+        "height": 260,
+        "width": 280,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2600,
+        -1100
+      ],
+      "id": "2306b0a6-33f9-4904-aaa4-242f9568f09f",
+      "name": "Version Info"
     }
   ],
   "connections": {
