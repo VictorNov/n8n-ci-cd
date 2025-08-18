@@ -1,4 +1,4 @@
-name: Scheduled Production Backup
+name: 4. Production Backup (scheduled 1 per day)
 
 permissions:
   contents: write

@@ -1,4 +1,4 @@
-name: Create Release Candidate
+name: 2. Create PR to PROD (Release Candidate)
 
 permissions:
   contents: write
