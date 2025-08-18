@@ -998,7 +998,7 @@ class WorkflowManager {
 
             // Update color to indicate production deployment
             if (environment === 'prod') {
-                versionNote.parameters.color = 3; // Green color for production
+                versionNote.parameters.color = 4; // Green color for production
             }
         } else {
             // Create new sticky note
@@ -1008,14 +1008,7 @@ class WorkflowManager {
             const noteId = `sticky-version-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
             // Position the sticky note near the Configuration node
-            let notePosition = [-900, -200]; // Default position
-            if (configNode && configNode.position) {
-                // Place it above and to the left of the Configuration node
-                notePosition = [
-                    configNode.position[0] - 180,
-                    configNode.position[1] - 120
-                ];
-            }
+            let notePosition = [-900, -200];
 
             versionNote = {
                 parameters: {
