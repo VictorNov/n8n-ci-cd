@@ -9,7 +9,7 @@
       "typeVersion": 1,
       "position": [
         -2140,
-        -845
+        -920
       ],
       "id": "97a38be5-426a-4a15-b315-aae2165565db",
       "name": "When clicking ‘Test workflow’..."
@@ -21,8 +21,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1040,
-        -845
+        -2140,
+        -585
       ],
       "id": "06562ad8-db9c-4f73-9252-ad4d7df4e46e",
       "name": "Code"
@@ -61,7 +61,7 @@
       "typeVersion": 1.1,
       "position": [
         -1700,
-        -845
+        -920
       ],
       "id": "4a92bfdb-1b67-4379-9a46-cca66fec586c",
       "name": "GitHub",
@@ -82,7 +82,7 @@
       "typeVersion": 2,
       "position": [
         -1920,
-        -845
+        -920
       ],
       "id": "config-1755167132137-3214",
       "name": "Configuration"
@@ -94,8 +94,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -160,
-        -920
+        -1260,
+        -660
       ],
       "id": "9d2d146c-4fcc-4f35-a29b-f17ecca04fd3",
       "name": "Code1"
@@ -133,8 +133,8 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        -380,
-        -920
+        -1480,
+        -660
       ],
       "id": "a5701c7a-9dcc-44e1-9186-ea26938f3998",
       "name": "GitHub1",
@@ -154,8 +154,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.9,
       "position": [
-        60,
-        -845
+        -1040,
+        -585
       ],
       "id": "68e7da5e-12a0-4998-a2b6-fb1639ab5a91",
       "name": "AI Agent1"
@@ -167,8 +167,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -600,
-        -845
+        -1700,
+        -585
       ],
       "id": "136ad2c1-c522-40fb-bc13-fe3d580d60d0",
       "name": "Configuration1"
@@ -180,58 +180,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -820,
-        -845
+        -1920,
+        -585
       ],
       "id": "e140a6a3-7c0e-4311-bd44-d858d86e3d64",
       "name": "Code2"
-    },
-    {
-      "parameters": {
-        "authentication": "oAuth2",
-        "resource": "workflow",
-        "owner": {
-          "__rl": true,
-          "value": "VictorNov",
-          "mode": "name"
-        },
-        "repository": {
-          "__rl": true,
-          "value": "n8n-ci-cd",
-          "mode": "list",
-          "cachedResultName": "n8n-ci-cd",
-          "cachedResultUrl": "https://github.com/VictorNov/n8n-ci-cd"
-        },
-        "workflowId": {
-          "__rl": true,
-          "value": 179288501,
-          "mode": "list",
-          "cachedResultName": "Sync Workflows to Production"
-        },
-        "ref": {
-          "__rl": true,
-          "value": "main",
-          "mode": "list",
-          "cachedResultName": "main"
-        },
-        "inputs": "={\n  \"workflows\": \"{{ $json.chatInput }}\"\n}"
-      },
-      "type": "n8n-nodes-base.github",
-      "typeVersion": 1.1,
-      "position": [
-        -1260,
-        -845
-      ],
-      "id": "2f123927-01ea-4783-96ea-e7b90d95c6e3",
-      "name": "GitHub2",
-      "webhookId": "206a5253-7d51-4fe7-b028-126c64491365",
-      "alwaysOutputData": false,
-      "credentials": {
-        "githubOAuth2Api": {
-          "id": "OxFRtTpB8aJPdNJg",
-          "name": "GitHub account"
-        }
-      }
     },
     {
       "parameters": {
@@ -241,7 +194,7 @@
       "typeVersion": 2,
       "position": [
         -1480,
-        -845
+        -920
       ],
       "id": "afb7f388-3937-4b7d-b4ef-440846a427ba",
       "name": "Configuration2"
@@ -321,24 +274,7 @@
     },
     "Configuration2": {
       "main": [
-        [
-          {
-            "node": "GitHub2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "GitHub2": {
-      "main": [
-        [
-          {
-            "node": "Code",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Code2": {

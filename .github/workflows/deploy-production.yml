@@ -41,32 +41,53 @@ jobs:
         run: |
           echo "🔍 Extracting deployment metadata"
           
-          # Get the full commit message (includes PR body for squash merges)
+          # Get the full commit message
           merge_message=$(git log -1 --pretty=%B)
           
-          # Method 1: Extract from RELEASE_METADATA comment in PR body
-          if echo "$merge_message" | grep -q "<!-- RELEASE_METADATA"; then
-            echo "📋 Found RELEASE_METADATA in commit message"
+          # Method 1: Extract from YAML metadata block in PR body
+          if echo "$merge_message" | grep -q "Release Metadata"; then
+            echo "📋 Found Release Metadata in commit message"
           
-            # Extract the metadata block
-            metadata_block=$(echo "$merge_message" | sed -n '/<!-- RELEASE_METADATA/,/-->/p')
+            # Extract the YAML block between ```yaml and ```
+            metadata_yaml=$(echo "$merge_message" | sed -n '/```yaml/,/```/p' | sed '1d;$d')
           
-            # Parse each metadata field
-            workflow_name=$(echo "$metadata_block" | grep "workflow_name:" | sed 's/.*workflow_name: //' | xargs)
-            workflow_prefix=$(echo "$metadata_block" | grep "workflow_prefix:" | sed 's/.*workflow_prefix: //' | xargs)
-            workflow_filename=$(echo "$metadata_block" | grep "workflow_filename:" | sed 's/.*workflow_filename: //' | xargs)
-            workflow_file=$(echo "$metadata_block" | grep "workflow_file:" | sed 's/.*workflow_file: //' | xargs)
-            version=$(echo "$metadata_block" | grep "version:" | sed 's/.*version: //' | xargs)
-            tag_name=$(echo "$metadata_block" | grep "tag_name:" | sed 's/.*tag_name: //' | xargs)
+            if [[ -n "$metadata_yaml" ]]; then
+              # Parse YAML fields
+              workflow_name=$(echo "$metadata_yaml" | grep "^workflow_name:" | cut -d: -f2- | xargs)
+              workflow_prefix=$(echo "$metadata_yaml" | grep "^workflow_prefix:" | cut -d: -f2- | xargs)
+              workflow_filename=$(echo "$metadata_yaml" | grep "^workflow_filename:" | cut -d: -f2- | xargs)
+              workflow_file=$(echo "$metadata_yaml" | grep "^workflow_file:" | cut -d: -f2- | xargs)
+              version=$(echo "$metadata_yaml" | grep "^version:" | cut -d: -f2- | xargs)
+              tag_name=$(echo "$metadata_yaml" | grep "^tag_name:" | cut -d: -f2- | xargs)
           
-            echo "✅ Extracted metadata from PR body:"
-            echo "  Workflow: $workflow_name"
-            echo "  Version: $version"
-            echo "  Tag: $tag_name"
-            metadata_source="pr_metadata"
+              echo "✅ Extracted metadata from PR body:"
+              echo "  Workflow: $workflow_name"
+              echo "  Version: $version"
+              echo "  Tag: $tag_name"
+              metadata_source="pr_metadata"
+            else
+              echo "⚠️ YAML block not found, trying PR title"
+              metadata_source=""
+            fi
+          fi
           
-          else
-            # Method 2: Fallback to detecting from changed files
+          # Method 2: Extract from PR title if YAML extraction failed
+          if [[ -z "$metadata_source" ]] && [[ "$merge_message" =~ Release[[:space:]]([0-9]+\.[0-9]+\.[0-9]+):[[:space:]](.+) ]]; then
+            version="${BASH_REMATCH[1]}"
+            workflow_name="${BASH_REMATCH[2]}"
+          
+            # Regenerate consistent naming formats
+            workflow_prefix=$(echo "$workflow_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
+            workflow_filename=$(echo "$workflow_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
+            workflow_file="${workflow_filename}.json"
+            tag_name="${workflow_prefix}-${version}"
+          
+            echo "✅ Extracted from PR title: $workflow_name v$version"
+            metadata_source="pr_title"
+          fi
+          
+          # Method 3: Fallback to detecting from changed files
+          if [[ -z "$metadata_source" ]]; then
             echo "⚠️ No release metadata found, detecting from changed files"
           
             changed_files=$(git diff --name-only HEAD~1 HEAD -- workflows/*.json 2>/dev/null || echo "")
@@ -83,6 +104,7 @@ jobs:
                 workflow_file="${workflow_filename}.json"
                 # Convert filename to readable name
                 workflow_name=$(echo "$workflow_filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
+                workflow_prefix=$(echo "$workflow_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
                 break  # Use first workflow found
               fi
             done
@@ -92,7 +114,6 @@ jobs:
               exit 1
             fi
           
-            workflow_prefix=$(echo "$workflow_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
             version="unknown"
             tag_name=""
             metadata_source="file_detection"
