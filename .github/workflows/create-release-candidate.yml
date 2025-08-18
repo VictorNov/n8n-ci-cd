@@ -48,17 +48,27 @@ jobs:
             # Auto-increment minor version
             echo "🔍 Auto-incrementing minor version..."
           
-            # Get the latest tag for this workflow
-            workflow_prefix=$(echo "${{ github.event.inputs.workflow_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
-            latest_tag=$(git tag -l "${workflow_prefix}-v*" --sort=-version:refname | head -n1)
+            # Get the workflow prefix (convert to lowercase with hyphens)
+            workflow_prefix=$(echo "${{ github.event.inputs.workflow_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
+            echo "🔍 Looking for tags with prefix: ${workflow_prefix}-"
+          
+            # List all tags for debugging
+            echo "📋 All existing tags:"
+            git tag -l | sort -V || echo "No tags found"
+          
+            # Find the latest tag for this workflow (without 'v' prefix)
+            latest_tag=$(git tag -l "${workflow_prefix}-*" --sort=-version:refname | head -n1)
+            echo "🎯 Latest tag found: '$latest_tag'"
           
             if [ -z "$latest_tag" ]; then
               # No previous tags, start with 1.0.0
               version="1.0.0"
               echo "🆕 No previous tags found, starting with: $version"
             else
-              # Extract version from tag (remove workflow prefix and 'v')
-              current_version=$(echo "$latest_tag" | sed "s/${workflow_prefix}-v//")
+              # Extract version from tag (remove workflow prefix and optional 'v')
+              current_version=$(echo "$latest_tag" | sed "s/${workflow_prefix}-//")
+              # Remove 'v' prefix if present
+              current_version=$(echo "$current_version" | sed 's/^v//')
               echo "📊 Current version: $current_version"
           
               # Parse semantic version
@@ -74,7 +84,7 @@ jobs:
               else
                 # Fallback if version format is unexpected
                 version="1.0.0"
-                echo "⚠️ Unexpected version format, defaulting to: $version"
+                echo "⚠️ Unexpected version format '$current_version', defaulting to: $version"
               fi
             fi
           fi
