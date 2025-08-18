@@ -9,6 +9,9 @@ on:
   push:
     branches: [ prod ]
 
+env:
+  NODE_VERSION: '22'
+
 jobs:
   deploy-to-production:
     runs-on: ubuntu-latest
@@ -18,261 +21,203 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Need at least 2 commits to compare changes
+          fetch-depth: 2
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
       - name: Install dependencies
         run: npm install
 
-      - name: Inject API key into existing config
+      - name: Inject API key
         run: |
           jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
 
-      - name: Detect workflows to deploy from commit changes
-        id: detect_workflows
+      - name: Extract deployment metadata
+        id: metadata
         run: |
-          echo "🔍 Detecting workflows to deploy from commit changes"
-
-          commit_sha="${{ github.sha }}"
-          echo "Analyzing changes in commit: $commit_sha"
-
-          # Get the list of changed files in the workflows directory
-          changed_workflow_files=$(git diff --name-only HEAD~1 HEAD -- workflows/*.json 2>/dev/null || echo "")
-
-          workflows=""
-          workflow_count=0
-          version=""
-
-          # Method 1: Check for changed workflow files
-          if [[ -n "$changed_workflow_files" ]]; then
-            echo "📂 Changed workflow files:"
-            echo "$changed_workflow_files"
-
-            # Convert file paths to workflow names
-            while IFS= read -r file; do
-              if [[ -n "$file" && "$file" =~ ^workflows/(.+)\.json$ ]]; then
-                # Extract filename without extension
-                filename="${BASH_REMATCH[1]}"
-
-                # Convert filename to readable workflow name
-                # Replace underscores with spaces and capitalize words
-                workflow_name=$(echo "$filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
-
-                if [[ -n "$workflows" ]]; then
-                  workflows="$workflows,$workflow_name"
-                else
-                  workflows="$workflow_name"
-                fi
-
-                workflow_count=$((workflow_count + 1))
-                echo "✅ Found workflow: $workflow_name (from $file)"
+          echo "🔍 Extracting deployment metadata"
+          
+          # Get the full commit message (includes PR body for squash merges)
+          merge_message=$(git log -1 --pretty=%B)
+          
+          # Method 1: Extract from RELEASE_METADATA comment in PR body
+          if echo "$merge_message" | grep -q "<!-- RELEASE_METADATA"; then
+            echo "📋 Found RELEASE_METADATA in commit message"
+          
+            # Extract the metadata block
+            metadata_block=$(echo "$merge_message" | sed -n '/<!-- RELEASE_METADATA/,/-->/p')
+          
+            # Parse each metadata field
+            workflow_name=$(echo "$metadata_block" | grep "workflow_name:" | sed 's/.*workflow_name: //' | xargs)
+            workflow_prefix=$(echo "$metadata_block" | grep "workflow_prefix:" | sed 's/.*workflow_prefix: //' | xargs)
+            workflow_filename=$(echo "$metadata_block" | grep "workflow_filename:" | sed 's/.*workflow_filename: //' | xargs)
+            workflow_file=$(echo "$metadata_block" | grep "workflow_file:" | sed 's/.*workflow_file: //' | xargs)
+            version=$(echo "$metadata_block" | grep "version:" | sed 's/.*version: //' | xargs)
+            tag_name=$(echo "$metadata_block" | grep "tag_name:" | sed 's/.*tag_name: //' | xargs)
+          
+            echo "✅ Extracted metadata from PR body:"
+            echo "  Workflow: $workflow_name"
+            echo "  Version: $version"
+            echo "  Tag: $tag_name"
+            metadata_source="pr_metadata"
+          
+          else
+            # Method 2: Fallback to detecting from changed files
+            echo "⚠️ No release metadata found, detecting from changed files"
+          
+            changed_files=$(git diff --name-only HEAD~1 HEAD -- workflows/*.json 2>/dev/null || echo "")
+          
+            if [[ -z "$changed_files" ]]; then
+              echo "⚠️ No workflow changes detected, using first workflow as fallback"
+              changed_files=$(ls workflows/*.json 2>/dev/null | head -n1)
+            fi
+          
+            workflow_name=""
+            for file in $changed_files; do
+              if [[ "$file" =~ ^workflows/(.+)\.json$ ]]; then
+                workflow_filename="${BASH_REMATCH[1]}"
+                workflow_file="${workflow_filename}.json"
+                # Convert filename to readable name
+                workflow_name=$(echo "$workflow_filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
+                break  # Use first workflow found
               fi
-            done <<< "$changed_workflow_files"
-          fi
-
-          # Method 2: Fallback to first workflow in directory
-          if [[ -z "$workflows" ]]; then
-            echo "⚠️ No workflow files changed in this commit"
-            echo "🔄 Falling back to first workflow in workflows directory..."
-
-            if [[ ! -d "workflows" ]]; then
-              echo "❌ workflows directory does not exist"
+            done
+          
+            if [[ -z "$workflow_name" ]]; then
+              echo "❌ No workflow found to deploy"
               exit 1
             fi
-
-            # Get the first workflow file (alphabetically)
-            first_workflow_file=$(ls workflows/*.json 2>/dev/null | head -n1)
-
-            if [[ -z "$first_workflow_file" ]]; then
-              echo "❌ No .json files found in workflows directory"
-              exit 1
-            fi
-
-            echo "📁 Available workflow files:"
-            ls -la workflows/*.json 2>/dev/null
-
-            # Extract filename and convert to workflow name
-            filename=$(basename "$first_workflow_file" .json)
-            workflow_name=$(echo "$filename" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
-
-            workflows="$workflow_name"
-            workflow_count=1
-
-            echo "✅ Using fallback workflow: $workflow_name (from $first_workflow_file)"
+          
+            workflow_prefix=$(echo "$workflow_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
+            version="unknown"
+            tag_name=""
+            metadata_source="file_detection"
           fi
-
-          # Extract version from the latest tag for the first workflow
-          if [[ -n "$workflows" ]]; then
-            # Get the first workflow name
-            first_workflow=$(echo "$workflows" | cut -d ',' -f1)
-            echo "🔍 Extracting version from latest tag for: $first_workflow"
-
-            # Convert workflow name to tag format
-            tag_prefix=$(echo "$first_workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
-
-            # Find the latest tag for this workflow
-            echo "🔍 Looking for tags with prefix: ${tag_prefix}"
-
-            # List all tags for debugging
-            echo "📋 All existing tags:"
-            git tag -l | sort -V || echo "No tags found"
-
-            # Try different patterns to find the tag
-            latest_tag=$(git tag -l | grep "^${tag_prefix}" | sort -V | tail -n1)
-
-            if [[ -z "$latest_tag" ]]; then
-              # Try alternative pattern with hyphen
-              latest_tag=$(git tag -l | grep "^${tag_prefix}-" | sort -V | tail -n1)
-            fi
-
-            if [[ -n "$latest_tag" ]]; then
-              echo "📋 Found latest tag: $latest_tag"
-
-              # Extract version from tag (remove workflow prefix)
-              version=$(echo "$latest_tag" | sed "s/${tag_prefix}-//")
-              # Remove 'v' prefix if present
-              version=$(echo "$version" | sed 's/^v//')
-
-              echo "📊 Extracted version: $version"
-            else
-              echo "⚠️ No tag found for workflow: $first_workflow"
-            fi
-          fi
-
-          echo "workflows=$workflows" >> $GITHUB_OUTPUT
+          
+          # Output all metadata
+          echo "workflow_name=$workflow_name" >> $GITHUB_OUTPUT
+          echo "workflow_prefix=$workflow_prefix" >> $GITHUB_OUTPUT
+          echo "workflow_filename=$workflow_filename" >> $GITHUB_OUTPUT
+          echo "workflow_file=$workflow_file" >> $GITHUB_OUTPUT
           echo "version=$version" >> $GITHUB_OUTPUT
-          echo "🎯 Detected $workflow_count workflow(s) to deploy: $workflows"
-          if [[ -n "$version" ]]; then
-            echo "🏷️ Using version: $version"
+          echo "tag_name=$tag_name" >> $GITHUB_OUTPUT
+          echo "metadata_source=$metadata_source" >> $GITHUB_OUTPUT
+          
+          # Log extracted metadata
+          echo "📋 Deployment Metadata:"
+          echo "  Workflow: $workflow_name"
+          echo "  Version: $version"
+          echo "  File: workflows/$workflow_file"
+          echo "  Tag: $tag_name"
+          echo "  Source: $metadata_source"
+
+      - name: Validate workflow file
+        run: |
+          filepath="workflows/${{ steps.metadata.outputs.workflow_file }}"
+          
+          echo "🔍 Validating workflow file: $filepath"
+          
+          if [[ ! -f "$filepath" ]]; then
+            echo "❌ Workflow file not found: $filepath"
+            echo "Available files:"
+            ls -la workflows/
+            exit 1
           fi
+          
+          if ! jq empty "$filepath" 2>/dev/null; then
+            echo "❌ Invalid JSON format in: $filepath"
+            exit 1
+          fi
+          
+          echo "✅ Workflow file validated successfully"
 
-      - name: Validate workflow files exist
+      - name: Run deployment
         run: |
-          echo "🔍 Validating workflow files exist and are readable"
-
-          IFS=',' read -ra WORKFLOWS <<< "${{ steps.detect_workflows.outputs.workflows }}"
-
-          for workflow in "${WORKFLOWS[@]}"; do
-            workflow=$(echo "$workflow" | xargs)  # Trim whitespace
-
-            # Convert workflow name back to filename
-            filename=$(echo "$workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
-            filepath="workflows/${filename}.json"
-
-            echo "Checking: $workflow -> $filepath"
-
-            if [[ ! -f "$filepath" ]]; then
-              echo "❌ Workflow file not found: $filepath"
-              echo "Available files in workflows directory:"
-              ls -la workflows/ 2>/dev/null || echo "workflows directory not accessible"
-              exit 1
-            fi
-
-            # Validate JSON format
-            if ! jq empty "$filepath" 2>/dev/null; then
-              echo "❌ Invalid JSON format in: $filepath"
-              exit 1
-            fi
-
-            echo "✅ Validated: $filepath"
-          done
-
-      - name: Run full deployment
-        run: |
-          echo "🚀 Running full deployment process"
-
+          echo "🚀 Deploying to production"
+          echo "  Workflow: ${{ steps.metadata.outputs.workflow_name }}"
+          echo "  Version: ${{ steps.metadata.outputs.version }}"
+          
           node scripts/deployment-manager.js full-deploy \
-            "${{ steps.detect_workflows.outputs.workflows }}" \
+            "${{ steps.metadata.outputs.workflow_name }}" \
             "false" \
             "${{ github.actor }}" \
             "${{ github.sha }}" \
-            "${{ steps.detect_workflows.outputs.version }}"
+            "${{ steps.metadata.outputs.version }}"
 
-      - name: Update releases with deployment status
-        if: success()
+      - name: Update release with deployment status
+        if: success() && steps.metadata.outputs.tag_name != ''
         run: |
-          echo "🏷️ Updating releases with deployment status"
-
-          IFS=',' read -ra WORKFLOWS <<< "${{ steps.detect_workflows.outputs.workflows }}"
-
-          for workflow in "${WORKFLOWS[@]}"; do
-            workflow=$(echo "$workflow" | xargs)  # Trim whitespace
-            echo "Processing deployment status for: $workflow"
-
-            # Convert workflow name to tag format (using hyphens for consistency)
-            tag_prefix=$(echo "$workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | sed 's/--*/-/g')
-
-            # List all tags for debugging
-            echo "📋 All existing tags for ${workflow}:"
-            git tag -l | grep "${tag_prefix}" || echo "No matching tags found"
-
-            # Find the latest tag for this workflow (try multiple patterns)
-            latest_tag=$(git tag -l | grep "^${tag_prefix}" | sort -V | tail -n1)
-
-            if [[ -z "$latest_tag" ]]; then
-              # Try alternative pattern with hyphen
-              latest_tag=$(git tag -l | grep "^${tag_prefix}-" | sort -V | tail -n1)
-            fi
-
-            if [[ -n "$latest_tag" ]]; then
-              echo "📋 Found release tag: $latest_tag"
-
-              # Update release notes with deployment info (using gh CLI)
-              current_time=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-              deployment_note="
-
-              ## 🚀 Deployment Status
-              - **Deployed to Production**: $current_time
-              - **Commit**: ${{ github.sha }}
-              - **Deployed by**: ${{ github.actor }}
-              - **Status**: ✅ Successfully deployed"
-
-              # Note: In real usage, you might want to update the release
-              echo "Would update release $latest_tag with deployment info"
-              # gh release edit "$latest_tag" --notes-file <(echo "$deployment_note") || true
-            else
-              echo "⚠️ No release tag found for workflow: $workflow"
-            fi
-          done
+          echo "🏷️ Updating release with deployment status"
+          
+          tag_name="${{ steps.metadata.outputs.tag_name }}"
+          current_time=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          # Note: You might want to use gh CLI to actually update the release
+          echo "Would update release $tag_name with deployment status:"
+          echo "  Deployed at: $current_time"
+          echo "  Deployed by: ${{ github.actor }}"
+          echo "  Commit: ${{ github.sha }}"
+          
+          # Uncomment to actually update the release:
+          # gh release edit "$tag_name" --notes-file <(
+          #   gh release view "$tag_name" --json body -q .body
+          #   echo ""
+          #   echo "## 🚀 Deployment Status"
+          #   echo "- **Deployed to Production**: $current_time"
+          #   echo "- **Commit**: ${{ github.sha }}"
+          #   echo "- **Deployed by**: ${{ github.actor }}"
+          #   echo "- **Status**: ✅ Successfully deployed"
+          # )
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create deployment summary
         run: |
-          echo "📊 Creating deployment summary"
-
           cat > deployment-summary.md << EOF
           # Production Deployment Summary
-
+          
           **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           **Commit**: ${{ github.sha }}
           **Triggered by**: ${{ github.actor }}
-          **Workflows Deployed**: ${{ steps.detect_workflows.outputs.workflows }}
-          $([ -n "${{ steps.detect_workflows.outputs.version }}" ] && echo "**Version**: ${{ steps.detect_workflows.outputs.version }}")
-
-          ## Deployed Workflows
+          **Metadata Source**: ${{ steps.metadata.outputs.metadata_source }}
+          
+          ## Deployed Workflow
+          - **Name**: ${{ steps.metadata.outputs.workflow_name }}
+          - **Version**: ${{ steps.metadata.outputs.version }}
+          - **File**: workflows/${{ steps.metadata.outputs.workflow_file }}
+          - **Tag**: ${{ steps.metadata.outputs.tag_name }}
+          
+          ## Deployment Details
+          - **Repository**: ${{ github.repository }}
+          - **Branch**: prod
+          - **Run ID**: ${{ github.run_id }}
+          - **Run Number**: ${{ github.run_number }}
+          
+          ## Deployment Type
           EOF
-
-          IFS=',' read -ra WORKFLOWS <<< "${{ steps.detect_workflows.outputs.workflows }}"
-
-          for workflow in "${WORKFLOWS[@]}"; do
-            workflow=$(echo "$workflow" | xargs)
-            filename=$(echo "$workflow" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/^_*//;s/_*$//')
-
-            echo "- **$workflow** (workflows/${filename}.json)" >> deployment-summary.md
-          done
-
+          
+          if [[ "${{ steps.metadata.outputs.metadata_source }}" == "pr_metadata" ]]; then
+            echo "- **Type**: Release deployment with full metadata" >> deployment-summary.md
+            echo "- **Release Tag**: ${{ steps.metadata.outputs.tag_name }}" >> deployment-summary.md
+          elif [[ "${{ steps.metadata.outputs.metadata_source }}" == "pr_title" ]]; then
+            echo "- **Type**: Release deployment from PR title" >> deployment-summary.md
+            echo "- **Release Tag**: ${{ steps.metadata.outputs.tag_name }}" >> deployment-summary.md
+          else
+            echo "- **Type**: Direct deployment (no release metadata found)" >> deployment-summary.md
+            echo "- **Warning**: Version information unavailable" >> deployment-summary.md
+          fi
+          
           echo "" >> deployment-summary.md
-          echo "## Deployment Details" >> deployment-summary.md
-          echo "- Repository: ${{ github.repository }}" >> deployment-summary.md
-          echo "- Branch: ${{ github.ref_name }}" >> deployment-summary.md
-          echo "- Run ID: ${{ github.run_id }}" >> deployment-summary.md
-
+          echo "## Rollback Instructions" >> deployment-summary.md
+          echo "If issues occur, use the following command to rollback:" >> deployment-summary.md
+          echo '```bash' >> deployment-summary.md
+          echo "npm run backup:restore [backup-name]" >> deployment-summary.md
+          echo '```' >> deployment-summary.md
+          
           echo "📄 Deployment summary created"
           cat deployment-summary.md
 
@@ -290,9 +235,16 @@ jobs:
       - name: Notify deployment completion
         run: |
           echo "🎉 Deployment completed successfully!"
-          echo "Workflows deployed: ${{ steps.detect_workflows.outputs.workflows }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "Deployed by: ${{ github.actor }}"
-          if [[ -n "${{ steps.detect_workflows.outputs.version }}" ]]; then
-            echo "Version: ${{ steps.detect_workflows.outputs.version }}"
+          echo ""
+          echo "📊 Summary:"
+          echo "  • Workflow: ${{ steps.metadata.outputs.workflow_name }}"
+          echo "  • Version: ${{ steps.metadata.outputs.version }}"
+          echo "  • File: workflows/${{ steps.metadata.outputs.workflow_file }}"
+          echo "  • Deployed by: ${{ github.actor }}"
+          echo "  • Commit: ${{ github.sha }}"
+          echo ""
+          
+          if [[ "${{ steps.metadata.outputs.version }}" == "unknown" ]]; then
+            echo "⚠️ Warning: Deployment completed without version information"
+            echo "   This deployment was not from a release PR merge"
           fi
