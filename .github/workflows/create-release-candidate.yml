@@ -164,7 +164,7 @@ jobs:
             ```bash
             npm run backup:restore [backup-name]
             ```
-          github_token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
