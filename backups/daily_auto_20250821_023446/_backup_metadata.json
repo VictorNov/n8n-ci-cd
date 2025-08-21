@@ -1,0 +1,18 @@
+{
+  "backupName": "daily_auto_20250821_023446",
+  "environment": "prod",
+  "createdAt": "2025-08-21T02:34:47.303Z",
+  "workflowCount": 1,
+  "failedCount": 0,
+  "workflows": [
+    {
+      "name": "Email Marketing-prod",
+      "baseName": "Email Marketing",
+      "environment": "prod",
+      "fileName": "email_marketing.json",
+      "status": "success",
+      "active": false,
+      "nodeCount": 11
+    }
+  ]
+}
