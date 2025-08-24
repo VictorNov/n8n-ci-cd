@@ -370,6 +370,7 @@
         "name": "Victor Novokshenov <between.photo@gmail.com>",
         "type": "personal",
         "icon": null,
+        "description": null,
         "projectRelations": [
           {
             "createdAt": "2025-06-16T12:58:27.240Z",
@@ -379,7 +380,7 @@
             "projectId": "ld5JedyMx1F9QqRn",
             "user": {
               "createdAt": "2025-06-16T12:58:27.237Z",
-              "updatedAt": "2025-08-11T15:38:44.655Z",
+              "updatedAt": "2025-08-24T02:38:26.000Z",
               "id": "c9aae829-0c97-4718-b4f7-67709983d4b0",
               "email": "between.photo@gmail.com",
               "firstName": "Victor",
@@ -393,13 +394,17 @@
                 "userActivatedAt": 1754489007792,
                 "npsSurvey": {
                   "waitingForResponse": true,
-                  "ignoredCount": 1,
-                  "lastShownAt": 1754926720567
+                  "ignoredCount": 2,
+                  "lastShownAt": 1755608738929
+                },
+                "dismissedCallouts": {
+                  "aiAgentStarterCallout": true
                 }
               },
               "role": "global:member",
               "disabled": false,
               "mfaEnabled": false,
+              "lastActiveAt": "2025-08-23",
               "isPending": false
             }
           }
