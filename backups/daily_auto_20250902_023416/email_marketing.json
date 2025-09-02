@@ -380,7 +380,7 @@
             "projectId": "ld5JedyMx1F9QqRn",
             "user": {
               "createdAt": "2025-06-16T12:58:27.237Z",
-              "updatedAt": "2025-08-25T13:46:52.000Z",
+              "updatedAt": "2025-09-01T09:12:34.412Z",
               "id": "c9aae829-0c97-4718-b4f7-67709983d4b0",
               "email": "between.photo@gmail.com",
               "firstName": "Victor",
@@ -393,9 +393,8 @@
                 "userActivated": true,
                 "userActivatedAt": 1754489007792,
                 "npsSurvey": {
-                  "waitingForResponse": true,
-                  "ignoredCount": 2,
-                  "lastShownAt": 1755608738929
+                  "responded": true,
+                  "lastShownAt": 1756717950507
                 },
                 "dismissedCallouts": {
                   "aiAgentStarterCallout": true
@@ -404,7 +403,7 @@
               "role": "global:member",
               "disabled": false,
               "mfaEnabled": false,
-              "lastActiveAt": "2025-08-25",
+              "lastActiveAt": "2025-09-01",
               "isPending": false
             }
           }
