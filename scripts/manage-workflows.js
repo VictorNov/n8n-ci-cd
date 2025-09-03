@@ -247,7 +247,7 @@ class WorkflowManager {
         this.injectEnvironmentVariables(prodWorkflowData, baseName, 'prod');
 
         // Clean node IDs to avoid conflicts
-        this.cleanupNodeIds(prodWorkflowData);
+        this.cleanupNodeWebhookIds(prodWorkflowData);
 
         // Check if a prod version already exists
         const allWorkflows = await this.getAllWorkflows();
@@ -814,6 +814,9 @@ class WorkflowManager {
         // Inject environment variables if available
         this.injectEnvironmentVariables(workflowData, baseName, environment, version);
 
+        // Clean node IDs to avoid conflicts
+        this.cleanupNodeWebhookIds(workflowData);
+
         console.log(`🔄 Importing: ${targetName}`);
 
         // Find existing workflow with same name
@@ -981,10 +984,10 @@ class WorkflowManager {
         }
     }
 
-    cleanupNodeIds(workflowData) {
+    cleanupNodeWebhookIds(workflowData) {
         if (workflowData.nodes && Array.isArray(workflowData.nodes)) {
             for (const node of workflowData.nodes) {
-                node.id = undefined;
+                node.webhookId = undefined;
             }
         }
     }
