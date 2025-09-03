@@ -6,6 +6,20 @@
       "variables": {
         "dev": { "var1": "some dev variable" },
         "prod": { "var1": "some prod variable" }
+      },
+      "credentials": {
+        "dev": {
+          "telegramApi": {
+            "id": "yp3z18tq6wMYkvh5",
+            "name": "Test Telegram account"
+          }
+        },
+        "prod": {
+          "telegramApi": {
+            "id": "a3k8Sc7T3upqrSm6",
+            "name": "test telegram prod"
+          }
+        }
       }
     }
   ]
