@@ -39,36 +39,15 @@ n8n Cloud → Export Scripts → Git Repository → GitHub Actions → Deploymen
 
 ### 1. Workflow Manager
 
-The `WorkflowManager` class in `scripts/manage-workflows.js` is the core component that handles:
+The `WorkflowManager` class in `scripts/manage-workflows.js` is the core component that handles all aspects of workflow management:
 - Fetching workflows from n8n
 - Exporting workflows to the repository
 - Importing workflows to n8n
 - Deploying workflows from dev to prod
 - Creating and restoring backups
-
-### 2. Export Manager
-
-The `ExportManager` class in `scripts/export-manager.js` specializes in:
-- Exporting workflows from n8n to the repository
-- Creating detailed export summaries
-- Handling selective exports of specific workflows
-
-### 3. Release Manager
-
-The `ReleaseManager` class in `scripts/release-manager.js` manages:
-- Creating release candidates
-- Analyzing workflow changes
-- Creating release tags and branches
-- Generating changelogs
-
-### 4. Deployment Manager
-
-The `DeploymentManager` class in `scripts/deployment-manager.js` handles:
-- Deploying workflows to production
-- Creating pre-deployment backups
-- Validating workflows before deployment
-- Verifying successful deployments
-- Generating deployment summaries
+- Managing environment-specific variables and credentials
+- Cleaning up old backups
+- Generating detailed summaries for exports, imports, deployments, and restores
 
 ## Development Setup
 
@@ -151,87 +130,6 @@ node scripts/manage-workflows.js list-backups
 
 # Clean up old backups
 node scripts/manage-workflows.js cleanup-backups 10
-```
-
-### export-manager.js
-
-Specialized script for exporting workflows.
-
-```bash
-# Export all dev workflows
-node scripts/export-manager.js export dev
-
-# Export specific workflows (comma-separated)
-node scripts/export-manager.js export-specific dev "Workflow Name 1,Workflow Name 2"
-```
-
-### release-manager.js
-
-Manages the release process for workflows.
-
-```bash
-# Validate a workflow exists
-node scripts/release-manager.js validate "Workflow Name"
-
-# Export a workflow
-node scripts/release-manager.js export "Workflow Name"
-
-# Ensure prod branch exists
-node scripts/release-manager.js ensure-prod-branch
-
-# Analyze workflow changes
-node scripts/release-manager.js analyze "Workflow Name" "1.0.0"
-
-# Create release tag
-node scripts/release-manager.js create-tag "Workflow Name" "1.0.0"
-
-# Create release branch
-node scripts/release-manager.js create-branch "Workflow Name" "1.0.0"
-
-# Get current version
-node scripts/release-manager.js current-version "Workflow Name"
-
-# Suggest next version
-node scripts/release-manager.js suggest-version "Workflow Name"
-
-# List all workflow versions
-node scripts/release-manager.js list-versions
-
-# Generate version summary
-node scripts/release-manager.js version-summary
-```
-
-### deployment-manager.js
-
-Handles the deployment process.
-
-```bash
-# Detect workflows to deploy
-node scripts/deployment-manager.js detect-workflows
-
-# Create backup
-node scripts/deployment-manager.js create-backup prod "custom-name"
-
-# Validate workflows
-node scripts/deployment-manager.js validate "Workflow1,Workflow2"
-
-# Deploy workflows
-node scripts/deployment-manager.js deploy "Workflow1,Workflow2"
-
-# Verify deployment
-node scripts/deployment-manager.js verify "Workflow1,Workflow2"
-
-# Full deployment process
-node scripts/deployment-manager.js full-deploy "Workflow1,Workflow2" false "username" "commit-sha"
-```
-
-### interactive-select.js
-
-Provides an interactive CLI interface.
-
-```bash
-# Start interactive mode
-node scripts/interactive-select.js
 ```
 
 ## GitHub Actions Workflows
@@ -322,21 +220,32 @@ Defines which workflows are managed by the system.
     {
       "baseName": "Workflow Name",
       "description": "Description of the workflow",
-      "environments": ["dev", "prod"],
       "variables": {
         "dev": {
-          "apiUrl": "https://dev-api.example.com"
+          "apiUrl": "https://dev-api.example.com",
+          "retryAttempts": 3
         },
         "prod": {
-          "apiUrl": "https://api.example.com"
+          "apiUrl": "https://api.example.com",
+          "retryAttempts": 5
+        }
+      },
+      "credentials": {
+        "dev": {
+          "telegramApi": {
+            "id": "dev-credential-id",
+            "name": "Dev Telegram account"
+          }
+        },
+        "prod": {
+          "telegramApi": {
+            "id": "prod-credential-id",
+            "name": "Prod Telegram account"
+          }
         }
       }
     }
-  ],
-  "settings": {
-    "backupBeforeDeploy": true,
-    "maxBackupsToKeep": 10
-  }
+  ]
 }
 ```
 
@@ -386,12 +295,12 @@ workflows/
 Backups are stored in the `backups` directory:
 ```
 backups/
-├── backup_prod_20241201_143000/
-│   ├── customer_onboarding-prod.json
-│   ├── email_marketing-prod.json
+├── daily_auto_20250903_022950/
+│   ├── customer_onboarding.json
+│   ├── email_marketing.json
 │   └── _backup_metadata.json
-├── pre_deploy_auto_20241202_090000/
-└── daily_auto_20241203_020000/
+├── pre_deploy_auto_20250902_090000/
+└── backup_prod_20250901_143000/
 ```
 
 ### Backup Metadata

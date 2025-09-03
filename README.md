@@ -16,6 +16,8 @@ A comprehensive CI/CD solution for managing n8n workflows in a single Cloud inst
 ## 📋 Table of Contents
 
 - [Setup & Configuration](#setup--configuration)
+  - [Managing Environment Variables](#5-managing-environment-variables)
+  - [Managing Credentials](#6-managing-credentials)
 - [GitHub Actions](#github-actions)
 - [Daily Workflow](#daily-workflow)
 - [Production Deployment](#production-deployment)
@@ -88,7 +90,25 @@ A comprehensive CI/CD solution for managing n8n workflows in a single Cloud inst
        "managedWorkflows": [
          {
            "baseName": "Customer Onboarding",
-           "description": "New customer welcome automation"
+           "description": "New customer welcome automation",
+           "variables": {
+             "dev": { "var1": "some dev variable" },
+             "prod": { "var1": "some prod variable" }
+           },
+           "credentials": {
+             "dev": {
+               "telegramApi": {
+                 "id": "your-dev-credential-id",
+                 "name": "Dev Telegram account"
+               }
+             },
+             "prod": {
+               "telegramApi": {
+                 "id": "your-prod-credential-id",
+                 "name": "Prod Telegram account"
+               }
+             }
+           }
          }
        ]
      }
@@ -127,7 +147,67 @@ These variables are automatically injected into your workflows during deployment
 
 This allows you to maintain different configurations for development and production environments without manually changing values when deploying.
 
-### 6. Start Using
+### 6. Managing Credentials
+
+You can define environment-specific credentials for your workflows in the `managed-workflows.json` file:
+
+```json
+{
+  "managedWorkflows": [
+    {
+      "baseName": "Customer Onboarding",
+      "description": "New customer welcome automation",
+      "credentials": {
+        "dev": {
+          "telegramApi": {
+            "id": "dev-credential-id",
+            "name": "Dev Telegram Bot"
+          },
+          "slackApi": {
+            "id": "dev-slack-id",
+            "name": "Dev Slack Workspace"
+          }
+        },
+        "prod": {
+          "telegramApi": {
+            "id": "prod-credential-id",
+            "name": "Production Telegram Bot"
+          },
+          "slackApi": {
+            "id": "prod-slack-id",
+            "name": "Production Slack Workspace"
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+#### How Credentials Work
+
+1. **Credential Definition**: Define credentials for each environment (dev/prod) in `managed-workflows.json`
+2. **Credential Types**: Use the same credential type names that appear in your n8n workflows (e.g., "telegramApi")
+3. **Automatic Switching**: During deployment, the system automatically updates nodes to use the correct credentials for the target environment
+
+#### Finding Credential IDs
+
+To find the credential IDs for your managed-workflows.json file:
+
+1. In n8n, go to **Settings** → **Credentials**
+2. Find the credential you want to use
+3. The ID is in the URL when you edit the credential: `https://yourcompany.app.n8n.cloud/credentials/42` (ID is "42")
+4. The name should match exactly what you see in the n8n interface
+
+#### Best Practices
+
+- **Create Separate Credentials**: Create separate credentials for dev and prod environments
+- **Use Descriptive Names**: Include the environment in the credential name (e.g., "Dev Telegram Bot")
+- **Secure Storage**: The credential IDs and names are stored in your repository, but the actual secrets remain secure in n8n
+- **Regular Rotation**: Regularly rotate API keys and secrets in your n8n credentials
+- **Verify Before Deployment**: Always verify that credentials exist in both environments before deploying
+
+### 7. Start Using
 
 1. **Add your n8n API key** as a GitHub repository secret
 2. **Run the "Commit development workflows" action** to export your workflows
@@ -259,7 +339,7 @@ To view your backups:
 
 1. Go to your GitHub repository
 2. Navigate to the `backups/` directory
-3. Each backup is in its own timestamped folder
+3. Each backup is in its own timestamped folder (e.g., `daily_auto_20250903_022950`)
 
 > **Note:** For advanced users who prefer working with terminal commands, please refer to the [development.md](development.md) file.
 
