@@ -37,7 +37,7 @@ jobs:
           node scripts/manage-workflows.js backup prod "$backup_name"
 
       - name: Save backup to artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: prod-backup-$(date +%Y%m%d)
           path: backups/daily_auto_$(date +%Y%m%d_%H%M%S)
