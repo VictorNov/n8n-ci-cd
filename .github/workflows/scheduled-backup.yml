@@ -42,7 +42,7 @@ jobs:
           git config --local user.name "GitHub Action"
           
           if [[ -n "$(git status --porcelain)" ]]; then
-            git add backups/
+            git add -f backups/
             git commit -m "backup: daily automated backup $(date -u +%Y-%m-%d)"
             git push
           fi
