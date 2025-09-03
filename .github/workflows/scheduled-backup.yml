@@ -32,12 +32,16 @@ jobs:
           jq --arg key "${{ secrets.N8N_API_KEY }}" '.n8n.apiKey = $key' config/n8n-config.json > tmp.json && mv tmp.json config/n8n-config.json
 
       - name: Create daily backup
+        id: backup
         run: |
-          backup_name="daily_auto_$(date +%Y%m%d_%H%M%S)"
-          node scripts/manage-workflows.js backup prod "$backup_name"
+          BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+          BACKUP_NAME="daily_auto_$BACKUP_DATE"
+          echo "backup_name=$BACKUP_NAME" >> $GITHUB_OUTPUT
+          echo "backup_date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+          node scripts/manage-workflows.js backup prod "$BACKUP_NAME"
 
       - name: Save backup to artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: prod-backup-$(date +%Y%m%d)
-          path: backups/daily_auto_$(date +%Y%m%d_%H%M%S)
+          name: prod-backup-${{ steps.backup.outputs.backup_date }}
+          path: backups/${{ steps.backup.outputs.backup_name }}
