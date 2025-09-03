@@ -1,7 +1,7 @@
 {
-  "backupName": "daily_auto_20250818_024409",
+  "backupName": "daily_auto_20250903_111110",
   "environment": "prod",
-  "createdAt": "2025-08-18T02:44:10.529Z",
+  "createdAt": "2025-09-03T11:11:11.949Z",
   "workflowCount": 1,
   "failedCount": 0,
   "workflows": [
@@ -12,7 +12,7 @@
       "fileName": "email_marketing.json",
       "status": "success",
       "active": false,
-      "nodeCount": 12
+      "nodeCount": 13
     }
   ]
 }
