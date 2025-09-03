@@ -249,6 +249,9 @@ class WorkflowManager {
         // Clean node IDs to avoid conflicts
         this.cleanupNodeWebhookIds(prodWorkflowData);
 
+        // Change credentials if needed
+        this.changeCredentials(prodWorkflowData, baseName, 'prod');
+
         // Check if a prod version already exists
         const allWorkflows = await this.getAllWorkflows();
         const existingProdWorkflow = allWorkflows.find(w => w.name === prodWorkflowName);
@@ -980,6 +983,50 @@ class WorkflowManager {
             // Add or update Sticky Note with version information if a version is provided
             if (version) {
                 this.addOrUpdateVersionStickyNote(workflowData, baseName, version, environment, configNode);
+            }
+        }
+    }
+
+    changeCredentials(workflowData, baseName, targetEnv) {
+        // Find the workflow configuration in managed-workflows.json
+        const workflowConfig = this.managedWorkflows.managedWorkflows.find(w => w.baseName === baseName);
+
+        if (!workflowConfig || !workflowConfig.credentials) {
+            return;
+        }
+
+        // Credentials shape:
+        // "credentials": {
+        //         "dev": {
+        //           "telegramApi": {
+        //             "id": "yp3z18tq6wMYkvh5",
+        //             "name": "Test Telegram account"
+        //           }
+        //         },
+        //         "prod": {
+        //           "telegramApi": {
+        //             "id": "a3k8Sc7T3upqrSm6",
+        //             "name": "test telegram prod"
+        //           }
+        //         }
+        //       }
+
+        // Iterate over each node and update credentials if needed
+        if (workflowData.nodes && Array.isArray(workflowData.nodes)) {
+            for (const node of workflowData.nodes) {
+                if (node.credentials) {
+                    for (const [credType, credData] of Object.entries(node.credentials)) {
+                        // Check if the workflow config has credentials for this type and target environment
+                        if (workflowConfig.credentials[targetEnv] && workflowConfig.credentials[targetEnv][credType]) {
+                            const newCred = workflowConfig.credentials[targetEnv][credType];
+                            console.log(`🔧 Updating credentials for node ${node.name} (${credType}) to ${newCred.name}`);
+                            node.credentials[credType] = {
+                                id: newCred.id,
+                                name: newCred.name
+                            };
+                        }
+                    }
+                }
             }
         }
     }
