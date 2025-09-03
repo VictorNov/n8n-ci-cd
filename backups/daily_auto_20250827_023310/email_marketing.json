@@ -1,5 +1,5 @@
 {
-  "name": "Email Marketing-dev",
+  "name": "Email Marketing-prod",
   "active": false,
   "isArchived": false,
   "nodes": [
@@ -12,7 +12,7 @@
         -1090
       ],
       "id": "97a38be5-426a-4a15-b315-aae2165565db",
-      "name": "When clicking ‘Test workflow’..."
+      "name": "When clicking ‘Test workflow’"
     },
     {
       "parameters": {
@@ -76,7 +76,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return {\n  \"var1\": \"some dev variable\"\n};"
+        "jsCode": "return {\n  \"var1\": \"some prod variable\",\n  \"version\": \"unknown\"\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -201,7 +201,7 @@
     },
     {
       "parameters": {
-        "content": "📦 **Email Marketing**\n\n**Version:** 2.0.0\n**Environment:** prod\n**Deployed:** 2025-08-18\n\nThis workflow is managed by the release system.\nVersion is automatically injected during deployment.",
+        "content": "📦 **Email Marketing**\n\n**Version:** unknown\n**Environment:** prod\n**Deployed:** 2025-08-18\n\nThis workflow is managed by the release system.\nVersion is automatically injected during deployment.",
         "height": 260,
         "width": 280,
         "color": 4
@@ -355,13 +355,13 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "triggerCount": 0,
+  "triggerCount": 1,
   "shared": [
     {
-      "createdAt": "2025-08-05T13:30:12.463Z",
-      "updatedAt": "2025-08-05T13:30:12.463Z",
+      "createdAt": "2025-08-05T13:30:27.443Z",
+      "updatedAt": "2025-08-05T13:30:27.443Z",
       "role": "workflow:owner",
-      "workflowId": "I3fEanqNEJi07MoC",
+      "workflowId": "tIKyU3P5Ifjz06Ni",
       "projectId": "ld5JedyMx1F9QqRn",
       "project": {
         "createdAt": "2025-06-16T12:58:27.239Z",
@@ -380,7 +380,7 @@
             "projectId": "ld5JedyMx1F9QqRn",
             "user": {
               "createdAt": "2025-06-16T12:58:27.237Z",
-              "updatedAt": "2025-09-03T10:10:54.000Z",
+              "updatedAt": "2025-08-26T04:12:00.000Z",
               "id": "c9aae829-0c97-4718-b4f7-67709983d4b0",
               "email": "between.photo@gmail.com",
               "firstName": "Victor",
@@ -393,8 +393,9 @@
                 "userActivated": true,
                 "userActivatedAt": 1754489007792,
                 "npsSurvey": {
-                  "responded": true,
-                  "lastShownAt": 1756717950507
+                  "waitingForResponse": true,
+                  "ignoredCount": 2,
+                  "lastShownAt": 1755608738929
                 },
                 "dismissedCallouts": {
                   "aiAgentStarterCallout": true
@@ -403,7 +404,7 @@
               "role": "global:member",
               "disabled": false,
               "mfaEnabled": false,
-              "lastActiveAt": "2025-09-03",
+              "lastActiveAt": "2025-08-26",
               "isPending": false
             }
           }

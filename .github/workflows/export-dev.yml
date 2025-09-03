@@ -1,4 +1,4 @@
-name: Commit development workflows
+name: 1. Commit *-dev workflows to main branch
 
 permissions:
   contents: write

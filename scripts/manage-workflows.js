@@ -125,11 +125,8 @@ class WorkflowManager {
 
     async getSpecificWorkflows(workflowBaseNames, environment) {
         const allWorkflows = await this.getAllWorkflows();
-        const suffix = this.getSuffix(environment);
 
-        // For each base name, we need to find the workflow with the correct environment suffix
         return allWorkflows.filter(workflow => {
-            // Check if this workflow's base name (without suffix) is in the requested list
             const baseName = this.getBaseNameFromWorkflowName(workflow.name);
             const workflowEnv = this.getEnvironmentFromWorkflowName(workflow.name);
 
@@ -151,7 +148,7 @@ class WorkflowManager {
             versionId: undefined
         };
 
-        // Generate filename based on workflow name
+        // Generate filename based on the workflow name
         const fileName = this.generateFileName(workflow.name);
         const filePath = path.join(exportDir, fileName);
 
@@ -172,7 +169,7 @@ class WorkflowManager {
         // First, get the base name without any environment suffix
         const baseName = this.getBaseNameFromWorkflowName(workflowName);
 
-        // Then convert to filename format
+        // Then convert to the filename format
         return baseName
             .replace(/[^a-zA-Z0-9\s-]/g, '')
             .replace(/\s+/g, '_')
@@ -182,7 +179,7 @@ class WorkflowManager {
     async deployDevToProd(workflowBaseNames) {
         console.log(`🔄 Deploying workflows from dev to prod...`);
 
-        // Create backup before deploying if enabled in settings
+        // Create a backup before deploying if enabled in settings
         if (this.config.settings.backupBeforeDeploy) {
             console.log(`💾 Creating backup before deploying to production...`);
             await this.createBackup('prod', `pre_deploy_auto_${new Date().toISOString().replace(/[:.]/g, '').split('T')[0]}_${new Date().toTimeString().split(' ')[0].replace(/:/g, '')}`);
@@ -226,12 +223,12 @@ class WorkflowManager {
         console.log(`🔄 Deploying: ${devWorkflow.name} → ${prodWorkflowName}`);
 
         // Get dev workflow details
-        const devResponse = await this.client.get(`/api/v1/workflows/${devWorkflow.id}`);
-        const devWorkflowData = devResponse.data;
+        const devWorkflowData = fs.readFileSync(path.join('workflows', this.generateFileName(devWorkflow.name)), 'utf8');
+        const devWorkflowParsed = JSON.parse(devWorkflowData);
 
         // Clean and prepare for prod
         const prodWorkflowData = {
-            ...devWorkflowData,
+            ...devWorkflowParsed,
             id: undefined,
             name: prodWorkflowName,
             active: undefined,
@@ -249,14 +246,17 @@ class WorkflowManager {
         // Inject environment variables if available
         this.injectEnvironmentVariables(prodWorkflowData, baseName, 'prod');
 
-        // Check if prod version already exists
+        // Clean node IDs to avoid conflicts
+        this.cleanupNodeIds(prodWorkflowData);
+
+        // Check if a prod version already exists
         const allWorkflows = await this.getAllWorkflows();
         const existingProdWorkflow = allWorkflows.find(w => w.name === prodWorkflowName);
 
         let result;
         if (existingProdWorkflow) {
-            // Update existing prod workflow
-            const updateResponse = await this.client.put(`/api/v1/workflows/${existingProdWorkflow.id}`, prodWorkflowData);
+            // Update the existing prod workflow
+            await this.client.put(`/api/v1/workflows/${existingProdWorkflow.id}`, prodWorkflowData);
             result = {
                 baseName: baseName,
                 action: 'updated',
@@ -266,7 +266,7 @@ class WorkflowManager {
                 prodId: existingProdWorkflow.id
             };
         } else {
-            // Create new prod workflow
+            // Create a new prod workflow
             const createResponse = await this.client.post('/api/v1/workflows', prodWorkflowData);
             result = {
                 baseName: baseName,
@@ -467,7 +467,7 @@ class WorkflowManager {
             throw new Error(`Backup not found: ${backupName}`);
         }
 
-        // Get list of workflow files in backup
+        // Get a list of workflow files in the backup
         const backupFiles = fs.readdirSync(backupPath)
             .filter(f => f.endsWith('.json') && !f.startsWith('_'));
 
@@ -554,8 +554,8 @@ class WorkflowManager {
 
         let result;
         if (existingWorkflow) {
-            // Update existing workflow
-            const updateResponse = await this.client.put(`/api/v1/workflows/${existingWorkflow.id}`, cleanWorkflowData);
+            // Update the existing workflow
+            await this.client.put(`/api/v1/workflows/${existingWorkflow.id}`, cleanWorkflowData);
             result = {
                 fileName: backupFile,
                 workflowName: workflowData.name,
@@ -566,7 +566,7 @@ class WorkflowManager {
             };
             console.log(`  ✅ Updated: ${workflowData.name} (was ${existingWorkflow.active ? 'active' : 'inactive'})`);
         } else {
-            // Create new workflow
+            // Create a new workflow
             const createResponse = await this.client.post('/api/v1/workflows', cleanWorkflowData);
             result = {
                 fileName: backupFile,
@@ -616,15 +616,27 @@ class WorkflowManager {
         const backupName = customName || `backup_${environment}_${timestamp.replace(/[-T]/g, '_')}`;
         const backupDir = path.join('backups', backupName);
 
-        // Create backup directory
+        // Create a backup directory
         fs.mkdirSync(backupDir, { recursive: true });
 
-        // Export workflows to backup directory
+        // Export workflows to a back-up directory
         const workflowsToBackup = await this.getManagedWorkflows(environment);
 
         if (workflowsToBackup.length === 0) {
             console.log(`❌ No ${environment} workflows found to backup`);
-            return null;
+            // Return an empty backup object instead of null to allow the script to continue
+            return {
+                backupName,
+                backupDir,
+                metadata: {
+                    backupName: backupName,
+                    environment: environment,
+                    createdAt: new Date().toISOString(),
+                    workflowCount: 0,
+                    failedCount: 0,
+                    workflows: []
+                }
+            };
         }
 
         console.log(`📋 Backing up ${workflowsToBackup.length} workflows`);
@@ -825,8 +837,8 @@ class WorkflowManager {
 
         let result;
         if (existingWorkflow) {
-            // Update existing workflow
-            const updateResponse = await this.client.put(`/api/v1/workflows/${existingWorkflow.id}`, cleanWorkflowData);
+            // Update the existing workflow
+            await this.client.put(`/api/v1/workflows/${existingWorkflow.id}`, cleanWorkflowData);
             result = {
                 fileName: workflowFile,
                 workflowName: targetName,
@@ -837,7 +849,7 @@ class WorkflowManager {
             };
             console.log(`  ✅ Updated: ${targetName} (was ${existingWorkflow.active ? 'active' : 'inactive'})`);
         } else {
-            // Create new workflow
+            // Create a new workflow
             const createResponse = await this.client.post('/api/v1/workflows', cleanWorkflowData);
             result = {
                 fileName: workflowFile,
@@ -859,20 +871,14 @@ class WorkflowManager {
 
         let envVariables = {};
 
-        // Check if workflow config exists and has variables for the specified environment
+        // Check if the workflow config exists and has variables for the specified environment
         if (!workflowConfig || !workflowConfig.variables || !workflowConfig.variables[environment]) {
-            // If no variables but we have a version, create a basic config
-            if (version && environment === 'prod') {
-                console.log(`🔧 No existing variables found, but injecting version for ${baseName}`);
-                envVariables = { version };
-            } else {
-                return; // No variables to inject
-            }
+            return;
         } else {
             // Clone the environment variables
             envVariables = { ...workflowConfig.variables[environment] };
 
-            // Add version if provided and we're in prod environment
+            // Add a version if provided and we're in a prod environment
             if (version && environment === 'prod') {
                 envVariables.version = version;
                 console.log(`🔧 Injecting ${environment} variables with version ${version} for ${baseName}`);
@@ -968,19 +974,27 @@ class WorkflowManager {
                 console.log(`✅ Replaced ${nodeName} with a Code node and updated with ${environment} variables`);
             }
 
-            // Add or update Sticky Note with version information if version is provided
+            // Add or update Sticky Note with version information if a version is provided
             if (version) {
                 this.addOrUpdateVersionStickyNote(workflowData, baseName, version, environment, configNode);
             }
         }
     }
 
+    cleanupNodeIds(workflowData) {
+        if (workflowData.nodes && Array.isArray(workflowData.nodes)) {
+            for (const node of workflowData.nodes) {
+                node.id = undefined;
+            }
+        }
+    }
+
     // Helper method to add or update version sticky note
-    addOrUpdateVersionStickyNote(workflowData, baseName, version, environment, configNode) {
-        // Look for existing version sticky note
+    addOrUpdateVersionStickyNote(workflowData, baseName, version, environment) {
+        // Look for the existing version sticky note
         let versionNote = workflowData.nodes.find(node =>
             node.type === 'n8n-nodes-base.stickyNote' &&
-            (node.name === 'Version Info' || node.parameters?.content?.includes('Version:'))
+            (node.name === 'Version Info' || node.parameters?.content?.includes('Version'))
         );
 
         const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
@@ -1001,7 +1015,7 @@ class WorkflowManager {
                 versionNote.parameters.color = 4; // Green color for production
             }
         } else {
-            // Create new sticky note
+            // Create a new sticky note
             console.log(`📝 Creating new Version Info sticky note with version ${version}`);
 
             // Generate a unique ID for the sticky note
@@ -1015,7 +1029,7 @@ class WorkflowManager {
                     content: noteContent,
                     height: 260,
                     width: 280,
-                    color: environment === 'prod' ? 3 : 5 // Green for prod, yellow for other
+                    color: environment === 'prod' ? 4 : 5 // Green for prod, yellow for other
                 },
                 type: "n8n-nodes-base.stickyNote",
                 typeVersion: 1,
@@ -1048,27 +1062,6 @@ class WorkflowManager {
         const summaryPath = path.join('logs', `_import_summary_${environment}.json`);
         fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
         console.log(`📊 Import summary saved: ${summaryPath}`);
-    }
-
-    createExportSummary(results, environment) {
-        const summary = {
-            timestamp: new Date().toISOString(),
-            environment: environment,
-            totalWorkflows: results.length,
-            successful: results.filter(r => r.status === 'success').length,
-            failed: results.filter(r => r.status === 'failed').length,
-            workflows: results
-        };
-
-        // Ensure the directory exists
-        const logsDir = path.join('logs');
-        if (!fs.existsSync(logsDir)) {
-            fs.mkdirSync(logsDir, { recursive: true });
-        }
-
-        const summaryPath = path.join(logsDir, `_export_summary_${environment}.json`);
-        fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
-        console.log(`📊 Export summary saved: ${summaryPath}`);
     }
 }
 

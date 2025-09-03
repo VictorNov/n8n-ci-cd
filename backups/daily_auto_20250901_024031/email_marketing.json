@@ -8,11 +8,11 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -2140,
-        -80
+        -2240,
+        -1090
       ],
       "id": "97a38be5-426a-4a15-b315-aae2165565db",
-      "name": "When clicking ‘Test workflow’..."
+      "name": "When clicking ‘Test workflow’"
     },
     {
       "parameters": {
@@ -21,8 +21,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1000,
-        -420
+        -1360,
+        -815
       ],
       "id": "06562ad8-db9c-4f73-9252-ad4d7df4e46e",
       "name": "Code"
@@ -60,8 +60,8 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        -1700,
-        -80
+        -1800,
+        -1090
       ],
       "id": "4a92bfdb-1b67-4379-9a46-cca66fec586c",
       "name": "GitHub",
@@ -76,13 +76,13 @@
     },
     {
       "parameters": {
-        "jsCode": "return {\n  \"var1\": \"some prod variable\"\n};"
+        "jsCode": "return {\n  \"var1\": \"some prod variable\",\n  \"version\": \"unknown\"\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1880,
-        -380
+        -2020,
+        -1090
       ],
       "id": "config-1755167132137-3214",
       "name": "Configuration"
@@ -94,8 +94,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        592,
-        -80
+        -1360,
+        -1165
       ],
       "id": "9d2d146c-4fcc-4f35-a29b-f17ecca04fd3",
       "name": "Code1"
@@ -133,8 +133,8 @@
       "type": "n8n-nodes-base.github",
       "typeVersion": 1.1,
       "position": [
-        380,
-        -440
+        -544,
+        -1090
       ],
       "id": "a5701c7a-9dcc-44e1-9186-ea26938f3998",
       "name": "GitHub1",
@@ -154,8 +154,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.9,
       "position": [
-        860,
-        260
+        -1140,
+        -1240
       ],
       "id": "68e7da5e-12a0-4998-a2b6-fb1639ab5a91",
       "name": "AI Agent1"
@@ -167,8 +167,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        152,
-        -80
+        -764,
+        -1240
       ],
       "id": "136ad2c1-c522-40fb-bc13-fe3d580d60d0",
       "name": "Configuration1"
@@ -180,71 +180,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -444,
-        -80
+        -1062,
+        -815
       ],
       "id": "e140a6a3-7c0e-4311-bd44-d858d86e3d64",
       "name": "Code2"
-    },
-    {
-      "parameters": {
-        "authentication": "oAuth2",
-        "resource": "workflow",
-        "owner": {
-          "__rl": true,
-          "value": "VictorNov",
-          "mode": "name"
-        },
-        "repository": {
-          "__rl": true,
-          "value": "n8n-ci-cd",
-          "mode": "list",
-          "cachedResultName": "n8n-ci-cd",
-          "cachedResultUrl": "https://github.com/VictorNov/n8n-ci-cd"
-        },
-        "workflowId": {
-          "__rl": true,
-          "value": 179288501,
-          "mode": "list",
-          "cachedResultName": "Sync Workflows to Production"
-        },
-        "ref": {
-          "__rl": true,
-          "value": "main",
-          "mode": "list",
-          "cachedResultName": "main"
-        },
-        "inputs": "={\n  \"workflows\": \"{{ $json.chatInput }}\"\n}"
-      },
-      "type": "n8n-nodes-base.github",
-      "typeVersion": 1.1,
-      "position": [
-        -1260,
-        -80
-      ],
-      "id": "2f123927-01ea-4783-96ea-e7b90d95c6e3",
-      "name": "GitHub2",
-      "webhookId": "206a5253-7d51-4fe7-b028-126c64491365",
-      "alwaysOutputData": false,
-      "credentials": {
-        "githubOAuth2Api": {
-          "id": "OxFRtTpB8aJPdNJg",
-          "name": "GitHub account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 1.9,
-      "position": [
-        -180,
-        380
-      ],
-      "id": "bdff0e69-db54-4222-89fb-70753bc97b4b",
-      "name": "AI Agent2"
     },
     {
       "parameters": {
@@ -253,11 +193,27 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1440,
-        340
+        -1580,
+        -1165
       ],
       "id": "afb7f388-3937-4b7d-b4ef-440846a427ba",
       "name": "Configuration2"
+    },
+    {
+      "parameters": {
+        "content": "📦 **Email Marketing**\n\n**Version:** unknown\n**Environment:** prod\n**Deployed:** 2025-08-18\n\nThis workflow is managed by the release system.\nVersion is automatically injected during deployment.",
+        "height": 260,
+        "width": 280,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2600,
+        -1100
+      ],
+      "id": "2306b0a6-33f9-4904-aaa4-242f9568f09f",
+      "name": "Version Info"
     }
   ],
   "connections": {
@@ -288,6 +244,11 @@
         [
           {
             "node": "Configuration2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GitHub1",
             "type": "main",
             "index": 0
           }
@@ -336,18 +297,7 @@
       "main": [
         [
           {
-            "node": "GitHub2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "GitHub2": {
-      "main": [
-        [
-          {
-            "node": "Code",
+            "node": "Code1",
             "type": "main",
             "index": 0
           }
@@ -355,17 +305,6 @@
       ]
     },
     "Code2": {
-      "main": [
-        [
-          {
-            "node": "AI Agent2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "AI Agent2": {
       "main": [
         [
           {
@@ -397,6 +336,17 @@
           }
         ]
       ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Configuration1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -420,6 +370,7 @@
         "name": "Victor Novokshenov <between.photo@gmail.com>",
         "type": "personal",
         "icon": null,
+        "description": null,
         "projectRelations": [
           {
             "createdAt": "2025-06-16T12:58:27.240Z",
@@ -429,7 +380,7 @@
             "projectId": "ld5JedyMx1F9QqRn",
             "user": {
               "createdAt": "2025-06-16T12:58:27.237Z",
-              "updatedAt": "2025-08-11T15:38:44.655Z",
+              "updatedAt": "2025-09-01T02:40:31.000Z",
               "id": "c9aae829-0c97-4718-b4f7-67709983d4b0",
               "email": "between.photo@gmail.com",
               "firstName": "Victor",
@@ -443,13 +394,17 @@
                 "userActivatedAt": 1754489007792,
                 "npsSurvey": {
                   "waitingForResponse": true,
-                  "ignoredCount": 1,
-                  "lastShownAt": 1754926720567
+                  "ignoredCount": 2,
+                  "lastShownAt": 1755608738929
+                },
+                "dismissedCallouts": {
+                  "aiAgentStarterCallout": true
                 }
               },
               "role": "global:member",
               "disabled": false,
               "mfaEnabled": false,
+              "lastActiveAt": "2025-08-31",
               "isPending": false
             }
           }

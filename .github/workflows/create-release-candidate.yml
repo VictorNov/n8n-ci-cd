@@ -1,4 +1,4 @@
-name: Create Release Candidate
+name: 2. Create PR to PROD (Release Candidate)
 
 permissions:
   contents: write
@@ -179,14 +179,14 @@ jobs:
             \`\`\`bash
             npm run backup:restore [backup-name]
             \`\`\`
-            EOF
-            
-            cp pr_body.md pr_notes.md
+          EOF
           
-          - name: Verify GitHub CLI auth
-            run: |
-              gh --version
-              gh auth status || gh auth token >/dev/null
+          cp pr_body.md pr_notes.md
+
+      - name: Verify GitHub CLI auth
+        run: |
+          gh --version
+          gh auth status || gh auth token >/dev/null
 
       - name: Create or update PR to prod
         run: |
