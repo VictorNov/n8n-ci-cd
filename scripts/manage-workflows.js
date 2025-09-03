@@ -817,6 +817,9 @@ class WorkflowManager {
         // Inject environment variables if available
         this.injectEnvironmentVariables(workflowData, baseName, environment, version);
 
+        // Change credentials if needed
+        this.changeCredentials(workflowData, baseName, environment);
+
         // Clean node IDs to avoid conflicts
         this.cleanupNodeWebhookIds(workflowData);
 
